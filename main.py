@@ -1,80 +1,57 @@
 import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.preprocessing import StandardScaler
-from sklearn.decomposition import PCA
-from sklearn.impute import SimpleImputer
+from preprocessamento import main as run_preprocess
+from clonalg_core import ClonalG
 import os
+import numpy as np
 
 def main():
-    # Garantir que o diretório de resultados exista
-    output_dir = 'resultados/etapa1'
-    os.makedirs(output_dir, exist_ok=True)
-
-    relatorio_texto = "# Resumo Estatístico - Etapa 1\n\n"
-
-    for i in range(1, 6):
-        file_path = f'datasets/DataSet{i}.csv'
-        print(f"Processando {file_path}...")
+    # 1. Garante que os dados estão prontos
+    print("--- 1/3 Iniciando Pré-processamento ---")
+    run_preprocess()
+    
+    # 2. Configurações para o Experimento Inicial (DataSet 1)
+    dataset_path = 'datasets/DataSet1_scaled.csv'
+    if not os.path.exists(dataset_path):
+        print(f"Erro: {dataset_path} não encontrado!")
+        return
         
-        try:
-            # Tentar carregar sem cabeçalho e com cabeçalho
-            df = pd.read_csv(file_path)
-            
-            # Se a primeira linha parecer dado (todos números), recarregar sem cabeçalho
-            if all(df.iloc[0].apply(lambda x: isinstance(x, (int, float)))):
-                 df = pd.read_csv(file_path, header=None)
-
-            shape = df.shape
-            missing = df.isnull().sum().sum()
-            
-            relatorio_texto += f"## DataSet {i}\n"
-            relatorio_texto += f"- **Dimensões:** {shape[0]} amostras, {shape[1]} features\n"
-            relatorio_texto += f"- **Valores ausentes:** {missing}\n\n"
-            
-            # Tratamento de valores ausentes (Imputação com a média)
-            imputer = SimpleImputer(strategy='mean')
-            df_imputed = imputer.fit_transform(df)
-            
-            # Normalização / Padronização
-            scaler = StandardScaler()
-            df_scaled = scaler.fit_transform(df_imputed)
-            
-            # Salvando os dados padronizados para uso nos próximos algoritmos
-            df_scaled_pd = pd.DataFrame(df_scaled)
-            df_scaled_pd.to_csv(f'datasets/DataSet{i}_scaled.csv', index=False, header=False)
-            
-            # Visualização
-            plt.figure(figsize=(8, 6))
-            if shape[1] > 2:
-                # Usa PCA para reduzir a 2 dimensões se tiver mais de 2 features
-                pca = PCA(n_components=2)
-                df_pca = pca.fit_transform(df_scaled)
-                sns.scatterplot(x=df_pca[:, 0], y=df_pca[:, 1], alpha=0.7, color='#1f77b4')
-                plt.title(f'DataSet {i} - PCA 2D (Padronizado)')
-                plt.xlabel('Componente Principal 1')
-                plt.ylabel('Componente Principal 2')
-            else:
-                # Plotagem direta se tiver 2 features
-                sns.scatterplot(x=df_scaled[:, 0], y=df_scaled[:, 1], alpha=0.7, color='#ff7f0e')
-                plt.title(f'DataSet {i} - 2D (Padronizado)')
-                plt.xlabel('Feature 1')
-                plt.ylabel('Feature 2')
-                
-            plt.grid(True, linestyle='--', alpha=0.5)
-            plot_path = os.path.join(output_dir, f'dataset{i}_plot.png')
-            plt.savefig(plot_path)
-            plt.close()
-            
-        except Exception as e:
-            print(f"Erro no dataset {i}: {e}")
-            relatorio_texto += f"Erro ao processar DataSet {i}: {e}\n\n"
-
-    with open(os.path.join(output_dir, 'resumo_estatistico.md'), 'w') as f:
-        f.write(relatorio_texto)
-        
-    print("Processamento concluído com sucesso!")
+    data = pd.read_csv(dataset_path, header=None).values
+    
+    print(f"\n--- 2/3 Iniciando ClonalG no {dataset_path} ---")
+    
+    # Parâmetros: N=10 anticorpos, k=3 clusters, rho=2.0, beta=10
+    sia = ClonalG(n_antibodies=10, n_clusters=3, rho=2.0, beta=10)
+    
+    # Treinamento por 50 gerações
+    best_centroids, history = sia.fit(data, n_iterations=50)
+    
+    # 3. Visualização dos Resultados
+    print("\n--- 3/3 Gerando Visualizações Finais ---")
+    plt.figure(figsize=(12, 5))
+    
+    # Gráfico de Evolução
+    plt.subplot(1, 2, 1)
+    plt.plot(history, color='#2ca02c', linewidth=2)
+    plt.title('Evolução da Afinidade (Silhouette)')
+    plt.xlabel('Geração')
+    plt.ylabel('Score')
+    plt.grid(True, alpha=0.3)
+    
+    # Gráfico de Clusters Final
+    plt.subplot(1, 2, 2)
+    labels = sia.predict(data, best_centroids)
+    sns.scatterplot(x=data[:, 0], y=data[:, 1], hue=labels, palette='viridis')
+    plt.scatter(best_centroids[:, 0], best_centroids[:, 1], s=200, c='red', marker='X', label='Centroides')
+    plt.title('Clusters Identificados pelo ClonalG')
+    plt.legend()
+    
+    plt.tight_layout()
+    plt.savefig('resultados/resultado_clonalg_ds1.png')
+    
+    print(f"\n[SUCESSO] Melhor Silhouette: {max(history):.4f}")
+    print("Resultado salvo em: resultados/resultado_clonalg_ds1.png")
 
 if __name__ == "__main__":
     main()
