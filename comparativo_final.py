@@ -33,7 +33,7 @@ def main():
         
         # --- 1. Rodar ClonalG ---
         # Usando a fórmula alpha = exp(-rho * af)
-        sia = ClonalG(n_antibodies=15, n_clusters=k, rho=2.0, beta=10)
+        sia = ClonalG(n_antibodies=15, k_range=(k, k), rho=2.0, beta=10)
         best_centroids_sia, history = sia.fit(data, n_iterations=50, verbose=False)
         labels_sia = sia.predict(data, best_centroids_sia)
         score_sia = silhouette_score(data, labels_sia)

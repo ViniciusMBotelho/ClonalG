@@ -22,7 +22,7 @@ def main():
     print(f"\n--- 2/3 Iniciando ClonalG no {dataset_path} ---")
     
     # Parâmetros: N=10 anticorpos, k=3 clusters, rho=2.0, beta=10
-    sia = ClonalG(n_antibodies=10, n_clusters=3, rho=2.0, beta=10)
+    sia = ClonalG(n_antibodies=10, k_range=(3, 3), rho=2.0, beta=10)
     
     # Treinamento por 50 gerações
     best_centroids, history = sia.fit(data, n_iterations=50)
