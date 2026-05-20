@@ -57,11 +57,11 @@ O algoritmo será estruturado em uma classe `ClonalG_Clustering` com os seguinte
 
 ---
 
-## Etapa 4: Definição do Número de Clusters ($k$) [CONCLUÍDO]
-**Objetivo:** Executar o ClonalG com \(k\) fixo.
+## Etapa 4: Descoberta do Número de Clusters ($k$) [CONCLUÍDO]
+**Objetivo:** Encontrar o melhor \(k\) com o ClonalG.
 
-*   **Abordagem:** Definir \(k\) previamente nas constantes do script de execução.
-*   **Análise:** Avaliar o resultado final por Silhouette, sem alterar \(k\) durante a execução.
+*   **Abordagem:** Definir uma lista de candidatos de \(k\) no script de execução e rodar o ClonalG separadamente para cada candidato.
+*   **Análise:** Selecionar o \(k\) com melhor Silhouette do ClonalG e repassar esse mesmo \(k\) ao k-Means.
 
 ---
 
@@ -69,7 +69,7 @@ O algoritmo será estruturado em uma classe `ClonalG_Clustering` com os seguinte
 **Objetivo:** Validar o desempenho do ClonalG contra um algoritmo de referência.
 
 *   Executar o `KMeans` do pacote `sklearn.cluster` nos 5 datasets.
-*   Para o k-Means, pode ser necessário usar o método do cotovelo (Elbow Method) ou o próprio Silhouette para definir o $k$ ideal antes da comparação final.
+*   Usar no k-Means o melhor \(k\) encontrado pelo ClonalG.
 *   Comparar os resultados do ClonalG e k-Means diretamente através do Índice Silhouette final obtido em cada dataset.
 
 ---

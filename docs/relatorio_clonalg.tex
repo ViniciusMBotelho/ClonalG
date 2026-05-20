@@ -28,7 +28,7 @@
 \maketitle
 
 \begin{abstract}
-Este relatorio apresenta a implementacao e avaliacao do algoritmo de selecao clonal ClonalG aplicado ao problema de agrupamento de dados. O objetivo foi investigar a capacidade de uma abordagem bioinspirada de organizar dados multidimensionais e compara-la com o algoritmo classico k-Means. Foram utilizados cinco conjuntos de dados fornecidos para o trabalho, submetidos a uma etapa de limpeza, imputacao, normalizacao, analise exploratoria, ajuste de parametros com \(k\) fixo e comparacao por meio do indice Silhouette. Os resultados mostram que o ClonalG obteve desempenho competitivo com o k-Means, empatando nos conjuntos mais estruturados, superando-o no DataSet 4 e ficando levemente abaixo nos DataSets 2 e 3 na configuracao avaliada.
+Este relatorio apresenta a implementacao e avaliacao do algoritmo de selecao clonal ClonalG aplicado ao problema de agrupamento de dados. O objetivo foi investigar a capacidade de uma abordagem bioinspirada de organizar dados multidimensionais e compara-la com o algoritmo classico k-Means. Foram utilizados cinco conjuntos de dados fornecidos para o trabalho, submetidos a uma etapa de limpeza, imputacao, normalizacao, analise exploratoria, descoberta de \(k\), ajuste de parametros e comparacao por meio do indice Silhouette. Os resultados mostram que o ClonalG obteve desempenho competitivo com o k-Means, empatando nos conjuntos mais estruturados, superando-o no DataSet 4 e ficando levemente abaixo nos DataSets 2 e 3 na configuracao avaliada.
 \end{abstract}
 
 \tableofcontents
@@ -186,15 +186,15 @@ Foi implementado um algoritmo de busca em grade no script \texttt{experimentos\_
     \item fator de clonagem \(\beta\): \(10\);
     \item taxa de substituicao: \(0.05\) e \(0.20\);
     \item taxa de selecao: \(0.50\) e \(0.85\);
-    \item valor fixo de \(k\), definido antes da execucao. O mesmo \(k\) foi usado pelo ClonalG e pelo k-Means.
+    \item candidatos de \(k\), avaliados externamente. Cada execucao do nucleo usa um unico \(k\) fixo, e o melhor \(k\) do ClonalG e repassado ao k-Means.
 \end{itemize}
 
-A busca inicial executou uma repeticao por configuracao para reduzir tempo de execucao. As melhores configuracoes foram reavaliadas com tres repeticoes. O \(k\) foi mantido fixo durante cada execucao do ClonalG e configurado previamente no script. Esse desenho experimental e suficiente para comparar tendencias, mas pode ser expandido aumentando as constantes de repeticoes, geracoes e a grade de parametros.
+A busca inicial executou uma repeticao por configuracao para reduzir tempo de execucao. As melhores configuracoes foram reavaliadas com tres repeticoes. Para descobrir \(k\), o ClonalG foi executado separadamente para cada candidato; em cada execucao individual, \(k\) permaneceu fixo. O candidato com melhor Silhouette medio do ClonalG foi usado tambem no k-Means. Esse desenho experimental e suficiente para comparar tendencias, mas pode ser expandido aumentando as constantes de repeticoes, geracoes e a grade de parametros.
 
 \section{Resultados}
 
 \subsection{Melhores configuracoes encontradas}
-A Tabela~\ref{tab:melhores} apresenta as melhores configuracoes validadas para cada dataset, comparadas ao k-Means executado com o mesmo \(k\) fixo.
+A Tabela~\ref{tab:melhores} apresenta as melhores configuracoes validadas para cada dataset, comparadas ao k-Means executado com o mesmo \(k\) encontrado pelo ClonalG.
 
 \begin{table}[H]
 \centering
@@ -216,7 +216,7 @@ DS & k & N & \(\rho\) & \(\beta\) & Subst. & Sel. & ClonalG medio & k-Means & De
 \end{table}
 
 \subsection{Comparacao final ClonalG vs k-Means}
-Apos a busca, o comparativo final foi reexecutado com as melhores configuracoes. O ClonalG foi executado tres vezes por dataset, registrando media e melhor execucao. O k-Means foi executado com \texttt{n\_init=30}, semente fixa e o mesmo \(k\) fixo configurado para o ClonalG.
+Apos a busca, o comparativo final foi reexecutado com as melhores configuracoes. O ClonalG foi executado tres vezes por dataset, registrando media e melhor execucao. O k-Means foi executado com \texttt{n\_init=30}, semente fixa e o mesmo \(k\) encontrado pelo ClonalG.
 
 \begin{table}[H]
 \centering
@@ -244,8 +244,8 @@ DS & k & ClonalG media & Melhor ClonalG & k-Means & Delta medio & Interpretacao 
 \label{fig:comparativo-agregado}
 \end{figure}
 
-\subsection{Configuracao do numero de clusters}
-O numero de clusters foi definido previamente como parametro fixo da execucao. A Tabela~\ref{tab:k-auto} apresenta os valores de \(k\) usados nas configuracoes avaliadas.
+\subsection{Descoberta do numero de clusters}
+O numero de clusters foi definido pelo ClonalG a partir dos candidatos configurados. A Tabela~\ref{tab:k-auto} apresenta os valores de \(k\) encontrados.
 
 \begin{table}[H]
 \centering
@@ -253,7 +253,7 @@ O numero de clusters foi definido previamente como parametro fixo da execucao. A
 \label{tab:k-auto}
 \begin{tabular}{ccc}
 \toprule
-DataSet & k configurado & Melhor Silhouette \\
+DataSet & k encontrado & Melhor Silhouette \\
 \midrule
 1 & 3 & 0.6480 \\
 2 & 5 & 0.4215 \\
@@ -264,7 +264,7 @@ DataSet & k configurado & Melhor Silhouette \\
 \end{tabular}
 \end{table}
 
-Os valores de \(k\) foram definidos antes da execucao; em seguida, esses valores foram repassados ao k-Means para uma comparacao com a mesma quantidade de clusters. Assim, a hipermutacao somatica atua apenas sobre as posicoes dos centroides.
+Os valores de \(k\) foram definidos pelo melhor desempenho do ClonalG entre os candidatos; em seguida, esses valores foram repassados ao k-Means para uma comparacao com a mesma quantidade de clusters. Assim, a hipermutacao somatica atua apenas sobre as posicoes dos centroides dentro de cada execucao.
 
 \subsection{Evolucao do Silhouette}
 Os graficos de evolucao mostram a melhora progressiva do indice Silhouette durante as geracoes. A selecao e a clonagem continuam usando afinidade Euclidiana interna; o Silhouette e calculado sobre o melhor anticorpo de cada geracao apenas para registro experimental e atendimento aos entregaveis.
@@ -394,8 +394,8 @@ As Figuras~\ref{fig:comparacao-ds1-ds2}, \ref{fig:comparacao-ds3-ds4} e \ref{fig
 \label{fig:comparacao-ds5}
 \end{figure}
 
-\subsection{Visualizacao com k fixo}
-A Figura~\ref{fig:k-auto-visual} apresenta os agrupamentos obtidos com \(k\) fixo. Esses graficos ajudam a observar se o numero de centroides configurado produz uma particao visualmente plausivel.
+\subsection{Visualizacao com k encontrado}
+A Figura~\ref{fig:k-auto-visual} apresenta os agrupamentos obtidos com o \(k\) encontrado pelo ClonalG. Esses graficos ajudam a observar se o numero de centroides selecionado produz uma particao visualmente plausivel.
 
 \begin{figure}[H]
 \centering
@@ -426,7 +426,7 @@ A Figura~\ref{fig:k-auto-visual} apresenta os agrupamentos obtidos com \(k\) fix
 \includegraphics[width=\textwidth]{resultados/etapa4_descoberta_k/descoberta_ds5.png}
 \caption{DS5}
 \end{subfigure}
-\caption{Agrupamentos obtidos pelo ClonalG com \(k\) fixo.}
+\caption{Agrupamentos obtidos pelo ClonalG com \(k\) encontrado.}
 \label{fig:k-auto-visual}
 \end{figure}
 
@@ -455,7 +455,7 @@ Outra limitacao e o uso do Silhouette como criterio externo de validacao. Embora
 \section{Conclusao}
 O trabalho implementou e avaliou o ClonalG para agrupamento de dados, contemplando reconhecimento por distancia Euclidiana, proliferacao proporcional a afinidade, hipermutacao inversamente proporcional a afinidade, selecao, memoria populacional e substituicao para diversidade. Os cinco datasets foram pre-processados, normalizados e analisados visualmente.
 
-A comparacao com k-Means mostrou que o ClonalG e competitivo, com empate nos DataSets 1 e 5, vantagem no DataSet 4 e desempenho levemente inferior nos DataSets 2 e 3. O \(k\) permaneceu fixo em cada execucao, usando o Silhouette para registrar a evolucao da qualidade e como criterio externo de validacao.
+A comparacao com k-Means mostrou que o ClonalG e competitivo, com empate nos DataSets 1 e 5, vantagem no DataSet 4 e desempenho levemente inferior nos DataSets 2 e 3. O melhor \(k\) encontrado pelo ClonalG foi usado tambem no k-Means, usando o Silhouette para registrar a evolucao da qualidade e como criterio externo de validacao.
 
 Como melhoria futura, recomenda-se ampliar a busca de parametros, aumentar o numero de repeticoes, testar outros criterios de validacao e analisar com mais profundidade o equilibrio entre memoria imunologica e diversidade populacional.
 
@@ -502,7 +502,7 @@ Os principais arquivos gerados pelo projeto foram:
     \item \texttt{resultados/etapa1/}: graficos exploratorios e resumo estatistico;
     \item \texttt{resultados/etapa3\_parametros/}: busca de parametros, rankings, CSVs e comparativos;
     \item \texttt{resultados/comparativo\_final/}: graficos ClonalG vs k-Means e tabela final;
-    \item \texttt{resultados/etapa4\_descoberta\_k/}: resultados com \(k\) configurado.
+    \item \texttt{resultados/etapa4\_descoberta\_k/}: resultados com \(k\) encontrado pelo ClonalG.
 \end{itemize}
 
 \end{document}

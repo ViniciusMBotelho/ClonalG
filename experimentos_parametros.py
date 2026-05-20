@@ -2,8 +2,9 @@
 Execucao configurada do ClonalG e comparacao com k-Means.
 
 Este script nao faz mais busca em grade. A cada execucao, os parametros do
-ClonalG sao definidos nas constantes no topo deste arquivo. O k e fixo em toda
-a execucao.
+ClonalG sao definidos nas constantes no topo deste arquivo. O k e descoberto
+por busca externa: cada execucao do nucleo recebe um unico k fixo, e o melhor
+k do ClonalG e repassado ao k-Means.
 """
 
 import os
@@ -32,7 +33,7 @@ RHO = 2.0
 BETA = 10.0
 REPLACE_RATE = 0.10
 SELECTION_RATE = 0.85
-K = 3
+K_CANDIDATES = [2, 3, 4, 5, 6]
 RUNS = 3
 ITERATIONS = 50
 
@@ -43,7 +44,7 @@ CONFIG = {
     'beta': BETA,
     'replace_rate': REPLACE_RATE,
     'selection_rate': SELECTION_RATE,
-    'k': K,
+    'k_candidates': K_CANDIDATES,
     'runs': RUNS,
     'iterations': ITERATIONS,
     'seed': RANDOM_SEED,
@@ -53,8 +54,10 @@ CONFIG = {
 def validate_config(config):
     if config['n_antibodies'] <= 0:
         raise ValueError('n_antibodies deve ser maior que zero.')
-    if config['k'] < 2:
-        raise ValueError('k deve ser pelo menos 2 para permitir Silhouette.')
+    if not config['k_candidates']:
+        raise ValueError('k_candidates deve conter pelo menos um valor.')
+    if any(k < 2 for k in config['k_candidates']):
+        raise ValueError('todos os valores em k_candidates devem ser pelo menos 2 para permitir Silhouette.')
     if not 0 <= config['replace_rate'] <= 1:
         raise ValueError('replace_rate deve estar entre 0 e 1.')
     if not 0 < config['selection_rate'] <= 1:
@@ -81,11 +84,11 @@ def safe_silhouette(data, labels):
     return silhouette_score(data, labels)
 
 
-def run_clonalg_once(data, config, ds_id, run):
-    np.random.seed(config['seed'] + ds_id * 100 + run)
+def run_clonalg_once(data, config, ds_id, run, k):
+    np.random.seed(config['seed'] + ds_id * 1000 + k * 100 + run)
     sia = ClonalG(
         n_antibodies=config['n_antibodies'],
-        k=config['k'],
+        k=k,
         rho=config['rho'],
         beta=config['beta'],
         replace_rate=config['replace_rate'],
@@ -102,9 +105,22 @@ def run_clonalg_once(data, config, ds_id, run):
 
 
 def evaluate_dataset(data, ds_id, config):
-    runs = [run_clonalg_once(data, config, ds_id, run) for run in range(config['runs'])]
+    candidates = []
+    for k in config['k_candidates']:
+        runs = [run_clonalg_once(data, config, ds_id, run, k) for run in range(config['runs'])]
+        scores = [run['score'] for run in runs]
+        candidates.append({
+            'k': k,
+            'runs': runs,
+            'mean': float(np.mean(scores)),
+            'best': float(np.max(scores)),
+            'worst': float(np.min(scores)),
+        })
+
+    best_candidate = max(candidates, key=lambda item: item['mean'])
+    runs = best_candidate['runs']
     scores = [run['score'] for run in runs]
-    k = config['k']
+    k = best_candidate['k']
 
     kmeans = KMeans(n_clusters=k, n_init=30, random_state=config['seed'])
     labels_km = kmeans.fit_predict(data)
@@ -112,35 +128,42 @@ def evaluate_dataset(data, ds_id, config):
 
     iteration_records = []
     run_records = []
-    for run_idx, run_result in enumerate(runs, start=1):
-        run_records.append({
-            'DataSet': ds_id,
-            'Run': run_idx,
-            'k': k,
-            'n_antibodies': config['n_antibodies'],
-            'rho': config['rho'],
-            'beta': config['beta'],
-            'replace_rate': config['replace_rate'],
-            'selection_rate': config['selection_rate'],
-            'Silhouette_Final': run_result['score'],
-        })
-        for iteration, silhouette in enumerate(run_result['history'], start=1):
-            iteration_records.append({
+    for candidate in candidates:
+        candidate_k = candidate['k']
+        is_best_k = candidate_k == k
+        for run_idx, run_result in enumerate(candidate['runs'], start=1):
+            run_records.append({
                 'DataSet': ds_id,
                 'Run': run_idx,
-                'Iteracao': iteration,
-                'k': k,
+                'k': candidate_k,
+                'Melhor_k_ClonalG': is_best_k,
                 'n_antibodies': config['n_antibodies'],
                 'rho': config['rho'],
                 'beta': config['beta'],
                 'replace_rate': config['replace_rate'],
                 'selection_rate': config['selection_rate'],
-                'Silhouette': silhouette,
+                'Silhouette_Final': run_result['score'],
             })
+            for iteration, silhouette in enumerate(run_result['history'], start=1):
+                iteration_records.append({
+                    'DataSet': ds_id,
+                    'Run': run_idx,
+                    'Iteracao': iteration,
+                    'k': candidate_k,
+                    'Melhor_k_ClonalG': is_best_k,
+                    'n_antibodies': config['n_antibodies'],
+                    'rho': config['rho'],
+                    'beta': config['beta'],
+                    'replace_rate': config['replace_rate'],
+                    'selection_rate': config['selection_rate'],
+                    'Silhouette': silhouette,
+                })
 
     result = {
         'DataSet': ds_id,
         'k': k,
+        'k_candidates': ','.join(str(candidate['k']) for candidate in candidates),
+        'k_scores_medios_clonalg': ';'.join(f"{candidate['k']}:{candidate['mean']:.4f}" for candidate in candidates),
         'n_antibodies': config['n_antibodies'],
         'rho': config['rho'],
         'beta': config['beta'],
@@ -170,7 +193,7 @@ def plot_final_comparison(df):
         'KMeans_Silhouette_mesmo_k': 'k-Means no mesmo k',
     })
     sns.barplot(data=plot_df, x='DataSet', y='Silhouette', hue='Algoritmo', palette=['#2f6f73', '#6b6f76'], ax=ax)
-    ax.set_title('ClonalG configurado vs k-Means usando k fixo')
+    ax.set_title('ClonalG configurado vs k-Means usando k encontrado pelo ClonalG')
     ax.set_xlabel('DataSet')
     ax.set_ylabel('Silhouette')
     ax.grid(axis='y', alpha=0.25)
@@ -182,11 +205,12 @@ def plot_final_comparison(df):
 def write_markdown_report(df, config):
     lines = [
         '# Execucao Configurada do ClonalG\n',
-        '- Fluxo: os parametros sao definidos nas constantes do script; o ClonalG usa k fixo.',
+        '- Fluxo: o ClonalG testa os valores de k configurados externamente; cada execucao do nucleo usa k fixo; o melhor k do ClonalG e repassado ao k-Means.',
         '- Afinidade interna do ClonalG: distancia Euclidiana media ao centroide mais proximo, com sinal invertido.',
-        '- Silhouette: usado apenas na validacao final das execucoes e na comparacao com k-Means.',
+        '- Silhouette: usado para registrar a evolucao, escolher o melhor k do ClonalG e comparar com k-Means.',
         f'- Parametros: N={config["n_antibodies"]}, rho={config["rho"]}, beta={config["beta"]}, '
-        f'replace_rate={config["replace_rate"]}, selection_rate={config["selection_rate"]}, k={config["k"]}',
+        f'replace_rate={config["replace_rate"]}, selection_rate={config["selection_rate"]}',
+        f'- Candidatos de k: {",".join(str(k) for k in config["k_candidates"])}',
         f'- Repeticoes por dataset: {config["runs"]}',
         f'- Geracoes por repeticao: {config["iterations"]}',
         '',
@@ -209,7 +233,7 @@ def write_iteration_output(iteration_df, run_df, config):
     lines = [
         '# Output por Iteracao do ClonalG\n',
         '## Parametros\n',
-        f'- k: {config["k"]}',
+        f'- k_candidates: {",".join(str(k) for k in config["k_candidates"])}',
         f'- n_antibodies: {config["n_antibodies"]}',
         f'- rho: {config["rho"]}',
         f'- beta: {config["beta"]}',
