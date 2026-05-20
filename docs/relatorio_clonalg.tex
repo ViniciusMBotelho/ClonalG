@@ -28,7 +28,7 @@
 \maketitle
 
 \begin{abstract}
-Este relatorio apresenta a implementacao e avaliacao do algoritmo de selecao clonal ClonalG aplicado ao problema de agrupamento de dados. O objetivo foi investigar a capacidade de uma abordagem bioinspirada de organizar dados multidimensionais e compara-la com o algoritmo classico k-Means. Foram utilizados cinco conjuntos de dados fornecidos para o trabalho, submetidos a uma etapa de limpeza, imputacao, normalizacao, analise exploratoria, ajuste de parametros, descoberta do numero de grupos e comparacao por meio do indice Silhouette. Os resultados mostram que o ClonalG obteve desempenho competitivo com o k-Means, empatando nos conjuntos mais estruturados, superando-o no DataSet 4 e ficando levemente abaixo nos DataSets 2 e 3 na configuracao avaliada.
+Este relatorio apresenta a implementacao e avaliacao do algoritmo de selecao clonal ClonalG aplicado ao problema de agrupamento de dados. O objetivo foi investigar a capacidade de uma abordagem bioinspirada de organizar dados multidimensionais e compara-la com o algoritmo classico k-Means. Foram utilizados cinco conjuntos de dados fornecidos para o trabalho, submetidos a uma etapa de limpeza, imputacao, normalizacao, analise exploratoria, ajuste de parametros com \(k\) fixo e comparacao por meio do indice Silhouette. Os resultados mostram que o ClonalG obteve desempenho competitivo com o k-Means, empatando nos conjuntos mais estruturados, superando-o no DataSet 4 e ficando levemente abaixo nos DataSets 2 e 3 na configuracao avaliada.
 \end{abstract}
 
 \tableofcontents
@@ -37,7 +37,7 @@ Este relatorio apresenta a implementacao e avaliacao do algoritmo de selecao clo
 \section{Introducao}
 O agrupamento de dados e uma tarefa de aprendizado nao supervisionado cujo objetivo e particionar observacoes em grupos coerentes, de forma que elementos pertencentes ao mesmo grupo sejam mais semelhantes entre si do que em relacao aos demais grupos. Essa tarefa e importante em problemas de reconhecimento de padroes, mineracao de dados, segmentacao e analise exploratoria.
 
-Neste trabalho foi implementado o algoritmo ClonalG, inspirado no principio de selecao clonal do sistema imunologico artificial. A ideia central e manter uma populacao de anticorpos candidatos, avaliar sua afinidade com o problema, proliferar os melhores candidatos, aplicar hipermutacao somatica e preservar uma memoria populacional de solucoes de maior qualidade. No contexto de agrupamento, cada anticorpo representa um conjunto de centroides, e a qualidade da solucao e medida pelo indice Silhouette.
+Neste trabalho foi implementado o algoritmo ClonalG, inspirado no principio de selecao clonal do sistema imunologico artificial. A ideia central e manter uma populacao de anticorpos candidatos, avaliar sua afinidade com o problema, proliferar os melhores candidatos, aplicar hipermutacao somatica e preservar uma memoria de solucoes de maior qualidade. No contexto de agrupamento, cada anticorpo representa um conjunto de centroides. A afinidade interna e guiada por distancia Euclidiana, enquanto o indice Silhouette e reservado para avaliacao final e comparacao externa.
 
 O algoritmo ClonalG foi comparado diretamente ao k-Means da biblioteca Scikit-Learn. O k-Means e uma referencia classica para particionamento baseado em centroides, mas depende fortemente da escolha de \(k\), da inicializacao e da geometria dos dados. Ja o ClonalG permite explorar o espaco de solucoes por mutacao e substituicao populacional, oferecendo uma alternativa estocastica para escapar de configuracoes locais inadequadas.
 
@@ -126,7 +126,13 @@ A = \{c_1, c_2, \ldots, c_k\}, \quad c_j \in \mathbb{R}^d
 em que \(k\) e o numero de grupos e \(d\) e a dimensionalidade dos dados. Para atribuir cada amostra a um grupo, calcula-se a distancia Euclidiana entre a amostra e todos os centroides do anticorpo, escolhendo o centroide mais proximo.
 
 \subsection{Funcao de afinidade}
-A afinidade foi medida pelo indice Silhouette, que avalia simultaneamente coesao intra-grupo e separacao inter-grupos. Para uma amostra \(i\), o Silhouette e definido por:
+A afinidade interna do ClonalG foi medida pela distancia Euclidiana media das amostras ao centroide mais proximo do anticorpo. Como o algoritmo seleciona valores maiores de afinidade, a medida usada internamente foi:
+
+\[
+af(A) = -\frac{1}{n}\sum_{i=1}^{n}\min_{c_j \in A} d(x_i, c_j)
+\]
+
+Assim, anticorpos que deixam as amostras mais proximas de seus centroides recebem valores menos negativos e sao preferidos na selecao e clonagem. O indice Silhouette nao participa da afinidade interna; ele e usado apenas na avaliacao final das particoes e na comparacao com k-Means. Para uma amostra \(i\), o Silhouette e definido por:
 
 \[
 s(i) = \frac{b(i) - a(i)}{\max(a(i), b(i))}
@@ -134,42 +140,40 @@ s(i) = \frac{b(i) - a(i)}{\max(a(i), b(i))}
 
 em que \(a(i)\) e a distancia media da amostra aos elementos do proprio grupo e \(b(i)\) e a menor distancia media da amostra aos elementos de outro grupo. O valor final e a media de \(s(i)\) para todas as amostras. Valores proximos de 1 indicam agrupamentos mais bem separados; valores proximos de 0 indicam fronteiras pouco definidas; valores negativos sugerem atribuicoes inadequadas.
 
-Na afinidade interna do ClonalG, foi adotada uma amostragem de Silhouette para reduzir custo computacional em datasets maiores. A avaliacao final e as tabelas comparativas usam o Silhouette completo.
-
 \subsection{Processos imunologicos implementados}
 Os quatro processos exigidos no enunciado foram implementados:
 
 \begin{itemize}
-    \item \textbf{Reconhecimento}: cada anticorpo gera rotulos por distancia Euclidiana aos centroides, e sua afinidade e avaliada pelo Silhouette.
+    \item \textbf{Reconhecimento}: cada anticorpo gera rotulos por distancia Euclidiana aos centroides, e sua afinidade interna e avaliada pela distancia Euclidiana media ao centroide mais proximo.
     \item \textbf{Proliferacao}: anticorpos de maior afinidade produzem mais clones. O numero de clones e proporcional a afinidade normalizada.
     \item \textbf{Variacao}: os clones sofrem hipermutacao somatica com intensidade inversamente proporcional a afinidade. Quanto menor a afinidade, maior a perturbacao aplicada aos centroides.
-    \item \textbf{Selecao e diversidade}: os melhores anticorpos e clones sao preservados na memoria populacional. Uma parcela dos piores individuos e substituida por novos anticorpos aleatorios para manter diversidade.
+    \item \textbf{Selecao e diversidade}: os melhores anticorpos e clones sao preservados explicitamente em memoria \(Abm\). O restante da populacao \(Abr\) mantem diversidade e recebe substituicao aleatoria parcial.
 \end{itemize}
 
-A taxa de selecao foi separada da taxa de substituicao. A variavel \texttt{selection\_rate} controla a porcentagem dos melhores anticorpos usados na etapa de clonagem, enquanto \texttt{replace\_rate} controla a substituicao dos piores individuos ao fim da geracao.
+A taxa de selecao foi separada da taxa de substituicao. A variavel \texttt{selection\_rate} controla a porcentagem da memoria usada na etapa de clonagem, enquanto \texttt{replace\_rate} controla a substituicao dos piores individuos de \(Abr\) ao fim da geracao.
 
 \subsection{Pseudocodigo do ClonalG}
 \begin{verbatim}
-Entrada: dados X, faixa ou valor de k, N anticorpos, rho, beta,
+Entrada: dados X, valor fixo de k, N anticorpos, rho, beta,
          taxa de selecao, taxa de substituicao, numero de geracoes
 Saida: melhor anticorpo A*
 
-Inicializar populacao P com N anticorpos aleatorios
+Inicializar memoria Abm e repertorio Abr com N anticorpos aleatorios
 Para cada geracao t:
-    Para cada anticorpo A em P:
+    Para cada anticorpo A em Abm + Abr:
         Atribuir cada amostra ao centroide mais proximo de A
-        Calcular afinidade(A) pelo indice Silhouette
+        Calcular afinidade(A) por distancia Euclidiana media negativa
     Normalizar afinidades
-    Selecionar os melhores anticorpos conforme taxa de selecao
+    Selecionar anticorpos de Abm conforme taxa de selecao
     Para cada anticorpo selecionado:
         Gerar numero de clones proporcional a afinidade
         Para cada clone:
             Aplicar ruido gaussiano com intensidade exp(-rho * afinidade)
-            Opcionalmente adicionar ou remover centroides se k for variavel
-    Avaliar clones pelo Silhouette
-    Combinar populacao original e clones
-    Preservar os N melhores individuos como memoria populacional
-    Substituir uma fracao dos piores por anticorpos aleatorios
+    Avaliar clones por distancia Euclidiana media negativa
+    Combinar Abm, Abr e clones
+    Atualizar Abm com os melhores individuos
+    Atualizar Abr com o restante da populacao
+    Substituir uma fracao dos piores de Abr por anticorpos aleatorios
 Retornar o melhor anticorpo encontrado
 \end{verbatim}
 
@@ -182,15 +186,15 @@ Foi implementado um algoritmo de busca em grade no script \texttt{experimentos\_
     \item fator de clonagem \(\beta\): \(10\);
     \item taxa de substituicao: \(0.05\) e \(0.20\);
     \item taxa de selecao: \(0.50\) e \(0.85\);
-    \item faixa de \(k\) pesquisada diretamente pelo ClonalG, com \(k \in \{2,3,4,5,6\}\). O k-Means foi executado posteriormente usando o \(k\) descoberto pelo melhor anticorpo do ClonalG.
+    \item valor fixo de \(k\), definido antes da execucao. O mesmo \(k\) foi usado pelo ClonalG e pelo k-Means.
 \end{itemize}
 
-A busca inicial executou uma repeticao por configuracao para reduzir tempo de execucao. As melhores configuracoes foram reavaliadas com tres repeticoes. Em cada repeticao de validacao, o ClonalG podia descobrir um \(k\) diferente; por isso foram registrados o \(k\) da melhor repeticao, a moda dos valores encontrados e a lista de \(k\) obtidos. Esse desenho experimental e suficiente para comparar tendencias, mas pode ser expandido aumentando as constantes \texttt{SEARCH\_RUNS}, \texttt{VALIDATION\_RUNS}, \texttt{N\_ITERATIONS} e a grade de parametros.
+A busca inicial executou uma repeticao por configuracao para reduzir tempo de execucao. As melhores configuracoes foram reavaliadas com tres repeticoes. O \(k\) foi mantido fixo durante cada execucao do ClonalG e configurado previamente no script. Esse desenho experimental e suficiente para comparar tendencias, mas pode ser expandido aumentando as constantes de repeticoes, geracoes e a grade de parametros.
 
 \section{Resultados}
 
 \subsection{Melhores configuracoes encontradas}
-A Tabela~\ref{tab:melhores} apresenta as melhores configuracoes validadas para cada dataset, comparadas ao k-Means executado com o \(k\) descoberto pelo ClonalG.
+A Tabela~\ref{tab:melhores} apresenta as melhores configuracoes validadas para cada dataset, comparadas ao k-Means executado com o mesmo \(k\) fixo.
 
 \begin{table}[H]
 \centering
@@ -212,22 +216,22 @@ DS & k & N & \(\rho\) & \(\beta\) & Subst. & Sel. & ClonalG medio & k-Means & De
 \end{table}
 
 \subsection{Comparacao final ClonalG vs k-Means}
-Apos a busca, o comparativo final foi reexecutado com as melhores configuracoes. O ClonalG foi executado tres vezes por dataset, registrando media, desvio padrao e melhor execucao. O k-Means foi executado com \texttt{n\_init=30}, semente fixa e o mesmo \(k\) descoberto pelo ClonalG para cada dataset.
+Apos a busca, o comparativo final foi reexecutado com as melhores configuracoes. O ClonalG foi executado tres vezes por dataset, registrando media e melhor execucao. O k-Means foi executado com \texttt{n\_init=30}, semente fixa e o mesmo \(k\) fixo configurado para o ClonalG.
 
 \begin{table}[H]
 \centering
 \caption{Comparacao final usando as melhores configuracoes do ClonalG.}
 \label{tab:comparativo-final}
 \resizebox{\textwidth}{!}{%
-\begin{tabular}{cccccccc}
+\begin{tabular}{ccccccc}
 \toprule
-DS & k & ClonalG media & Desvio & Melhor ClonalG & k-Means & Delta medio & Interpretacao \\
+DS & k & ClonalG media & Melhor ClonalG & k-Means & Delta medio & Interpretacao \\
 \midrule
-1 & 3 & 0.6480 & 0.0000 & 0.6480 & 0.6480 & 0.0000 & Empate \\
-2 & 5 & 0.3816 & 0.0088 & 0.3940 & 0.4185 & -0.0369 & k-Means superior \\
-3 & 5 & 0.2170 & 0.0046 & 0.2235 & 0.2220 & -0.0050 & Empate tecnico \\
-4 & 4 & 0.5905 & 0.0000 & 0.5905 & 0.5866 & 0.0040 & ClonalG superior \\
-5 & 3 & 0.6644 & 0.0000 & 0.6644 & 0.3724 & 0.2920 & ClonalG superior \\
+1 & 3 & 0.6480 & 0.6480 & 0.6480 & 0.0000 & Empate \\
+2 & 5 & 0.3816 & 0.3940 & 0.4185 & -0.0369 & k-Means superior \\
+3 & 5 & 0.2170 & 0.2235 & 0.2220 & -0.0050 & Empate tecnico \\
+4 & 4 & 0.5905 & 0.5905 & 0.5866 & 0.0040 & ClonalG superior \\
+5 & 3 & 0.6644 & 0.6644 & 0.3724 & 0.2920 & ClonalG superior \\
 \bottomrule
 \end{tabular}%
 }
@@ -240,8 +244,8 @@ DS & k & ClonalG media & Desvio & Melhor ClonalG & k-Means & Delta medio & Inter
 \label{fig:comparativo-agregado}
 \end{figure}
 
-\subsection{Descoberta automatica do numero de clusters}
-Tambem foi avaliada a capacidade do ClonalG de operar com \(k\) variavel. Nessa versao, os anticorpos podem adicionar ou remover centroides durante a mutacao estrutural, dentro da faixa definida. A Tabela~\ref{tab:k-auto} apresenta os valores encontrados.
+\subsection{Configuracao do numero de clusters}
+O numero de clusters foi definido previamente como parametro fixo da execucao. A Tabela~\ref{tab:k-auto} apresenta os valores de \(k\) usados nas configuracoes avaliadas.
 
 \begin{table}[H]
 \centering
@@ -249,7 +253,7 @@ Tambem foi avaliada a capacidade do ClonalG de operar com \(k\) variavel. Nessa 
 \label{tab:k-auto}
 \begin{tabular}{ccc}
 \toprule
-DataSet & k descoberto & Melhor Silhouette \\
+DataSet & k configurado & Melhor Silhouette \\
 \midrule
 1 & 3 & 0.6480 \\
 2 & 5 & 0.4215 \\
@@ -260,10 +264,10 @@ DataSet & k descoberto & Melhor Silhouette \\
 \end{tabular}
 \end{table}
 
-Os valores de \(k\) encontrados passaram a ser definidos pelo proprio ClonalG; em seguida, esses valores foram repassados ao k-Means para uma comparacao com a mesma quantidade de clusters. Isso indica que a mutacao estrutural contribuiu para explorar diferentes complexidades de modelo, ainda que o criterio de decisao continue baseado no Silhouette.
+Os valores de \(k\) foram definidos antes da execucao; em seguida, esses valores foram repassados ao k-Means para uma comparacao com a mesma quantidade de clusters. Assim, a hipermutacao somatica atua apenas sobre as posicoes dos centroides.
 
-\subsection{Evolucao do Silhouette}
-Os graficos de evolucao mostram a melhora progressiva da afinidade durante as geracoes. Como o ClonalG preserva os melhores anticorpos, a curva tende a se estabilizar quando a populacao encontra uma configuracao de centroides de alta afinidade.
+\subsection{Evolucao da afinidade interna}
+Os graficos de evolucao mostram a melhora progressiva da afinidade Euclidiana interna durante as geracoes. Como o ClonalG preserva os melhores anticorpos em \(Abm\), a curva tende a se estabilizar quando a populacao encontra uma configuracao de centroides de alta afinidade.
 
 \begin{figure}[H]
 \centering
@@ -390,8 +394,8 @@ As Figuras~\ref{fig:comparacao-ds1-ds2}, \ref{fig:comparacao-ds3-ds4} e \ref{fig
 \label{fig:comparacao-ds5}
 \end{figure}
 
-\subsection{Visualizacao da descoberta de k}
-A Figura~\ref{fig:k-auto-visual} apresenta os agrupamentos obtidos durante a etapa de descoberta automatica de \(k\). Esses graficos ajudam a observar se o numero de centroides escolhido pelo ClonalG produz uma particao visualmente plausivel.
+\subsection{Visualizacao com k fixo}
+A Figura~\ref{fig:k-auto-visual} apresenta os agrupamentos obtidos com \(k\) fixo. Esses graficos ajudam a observar se o numero de centroides configurado produz uma particao visualmente plausivel.
 
 \begin{figure}[H]
 \centering
@@ -422,7 +426,7 @@ A Figura~\ref{fig:k-auto-visual} apresenta os agrupamentos obtidos durante a eta
 \includegraphics[width=\textwidth]{resultados/etapa4_descoberta_k/descoberta_ds5.png}
 \caption{DS5}
 \end{subfigure}
-\caption{Agrupamentos obtidos pelo ClonalG com descoberta automatica de \(k\).}
+\caption{Agrupamentos obtidos pelo ClonalG com \(k\) fixo.}
 \label{fig:k-auto-visual}
 \end{figure}
 
@@ -436,7 +440,7 @@ Esses resultados sugerem que, quando a estrutura dos grupos e bem representada p
 \subsection{Memoria imunologica}
 No algoritmo implementado, a memoria imunologica corresponde a preservacao dos melhores anticorpos ao longo das geracoes. Em vez de descartar completamente a populacao a cada iteracao, o ClonalG combina anticorpos antigos e clones mutados, selecionando os melhores para compor a nova populacao. Isso permite acumular conhecimento sobre boas regioes do espaco de busca.
 
-Essa memoria foi importante para estabilizar os resultados em datasets como DS1, DS4 e DS5, nos quais o desvio padrao do ClonalG foi praticamente nulo na comparacao final. Entretanto, a memoria tambem pode levar a convergencia prematura se a diversidade for insuficiente. Por isso a taxa de substituicao foi mantida como parametro de controle: ela injeta novos anticorpos aleatorios e reduz a chance de a populacao permanecer presa a uma configuracao inadequada.
+Essa memoria foi importante para estabilizar os resultados em datasets como DS1, DS4 e DS5, nos quais as repeticoes do ClonalG convergiram para resultados equivalentes na comparacao final. Entretanto, a memoria tambem pode levar a convergencia prematura se a diversidade for insuficiente. Por isso a taxa de substituicao foi mantida como parametro de controle: ela injeta novos anticorpos aleatorios e reduz a chance de a populacao permanecer presa a uma configuracao inadequada.
 
 \subsection{Efeito dos parametros}
 O tamanho da populacao influencia diretamente a diversidade inicial e o numero de solucoes candidatas mantidas. Populacoes maiores tendem a explorar melhor o espaco, mas aumentam o custo computacional. O parametro \(\rho\) controla a intensidade da hipermutacao: valores maiores reduzem rapidamente a mutacao dos anticorpos de alta afinidade, favorecendo refinamento local; valores menores mantem perturbacoes mais amplas. A taxa de selecao afeta a pressao seletiva da clonagem, enquanto a taxa de substituicao controla a entrada de diversidade externa.
@@ -446,12 +450,12 @@ Nos melhores resultados, os DataSets 1, 4 e 5 usaram populacao menor, indicando 
 \subsection{Limitacoes}
 A principal limitacao experimental e o numero reduzido de repeticoes na busca inicial. A validacao das melhores configuracoes usou tres repeticoes, mas uma avaliacao estatistica mais robusta poderia usar 10, 20 ou mais execucoes por configuracao. Alem disso, a grade testada foi mantida enxuta para viabilizar a execucao em tempo pratico. O proprio script permite expandir essa grade.
 
-Outra limitacao e o uso exclusivo do Silhouette como criterio de qualidade. Embora adequado para comparar coesao e separacao, ele pode favorecer valores menores de \(k\) em alguns conjuntos ou penalizar grupos com formatos nao convexos. Uma analise complementar poderia incluir Calinski-Harabasz, Davies-Bouldin ou avaliacao visual especializada.
+Outra limitacao e o uso do Silhouette como criterio externo de validacao. Embora adequado para comparar coesao e separacao, ele pode favorecer valores menores de \(k\) em alguns conjuntos ou penalizar grupos com formatos nao convexos. Uma analise complementar poderia incluir Calinski-Harabasz, Davies-Bouldin ou avaliacao visual especializada.
 
 \section{Conclusao}
 O trabalho implementou e avaliou o ClonalG para agrupamento de dados, contemplando reconhecimento por distancia Euclidiana, proliferacao proporcional a afinidade, hipermutacao inversamente proporcional a afinidade, selecao, memoria populacional e substituicao para diversidade. Os cinco datasets foram pre-processados, normalizados e analisados visualmente.
 
-A comparacao com k-Means mostrou que o ClonalG e competitivo, com empate nos DataSets 1 e 5, vantagem no DataSet 4 e desempenho levemente inferior nos DataSets 2 e 3. A etapa de descoberta automatica de \(k\) demonstrou que o algoritmo consegue explorar diferentes numeros de clusters por meio de mutacao estrutural, usando o Silhouette como criterio de selecao.
+A comparacao com k-Means mostrou que o ClonalG e competitivo, com empate nos DataSets 1 e 5, vantagem no DataSet 4 e desempenho levemente inferior nos DataSets 2 e 3. O \(k\) permaneceu fixo em cada execucao, usando o Silhouette apenas como criterio externo de validacao.
 
 Como melhoria futura, recomenda-se ampliar a busca de parametros, aumentar o numero de repeticoes, testar outros criterios de validacao e analisar com mais profundidade o equilibrio entre memoria imunologica e diversidade populacional.
 
@@ -498,7 +502,7 @@ Os principais arquivos gerados pelo projeto foram:
     \item \texttt{resultados/etapa1/}: graficos exploratorios e resumo estatistico;
     \item \texttt{resultados/etapa3\_parametros/}: busca de parametros, rankings, CSVs e comparativos;
     \item \texttt{resultados/comparativo\_final/}: graficos ClonalG vs k-Means e tabela final;
-    \item \texttt{resultados/etapa4\_descoberta\_k/}: resultados da descoberta automatica de \(k\).
+    \item \texttt{resultados/etapa4\_descoberta\_k/}: resultados com \(k\) configurado.
 \end{itemize}
 
 \end{document}

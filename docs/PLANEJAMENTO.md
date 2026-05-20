@@ -32,7 +32,7 @@ O algoritmo será estruturado em uma classe `ClonalG_Clustering` com os seguinte
 2.  **Reconhecimento (Cálculo de Afinidade):**
     *   Afinidade dos anticorpos com os antígenos (dados).
     *   Métrica base: Distância Euclidiana.
-    *   Para avaliar o conjunto de centroides de um anticorpo, a **afinidade será guiada pelo Índice Silhouette** (quanto maior, melhor o agrupamento).
+    *   Para avaliar o conjunto de centroides de um anticorpo, a **afinidade interna será guiada pela distância Euclidiana média ao centroide mais próximo** (com sinal invertido para manter maior = melhor).
 3.  **Proliferação (Clonagem):**
     *   Selecionar os melhores anticorpos (maior afinidade).
     *   Gerar clones proporcionalmente à afinidade: os melhores produzem mais cópias.
@@ -41,8 +41,8 @@ O algoritmo será estruturado em uma classe `ClonalG_Clustering` com os seguinte
     *   Regra: Mutação inversamente proporcional à afinidade (clones de anticorpos excelentes sofrem pouca mutação; clones de anticorpos piores sofrem mais mutação para explorar o espaço de busca).
 5.  **Seleção e Substituição:**
     *   Calcular a afinidade da população clonada e mutada.
-    *   Selecionar os melhores indivíduos entre a população original e os clones para formar a nova geração.
-    *   Substituir uma porcentagem de indivíduos de baixa afinidade por novos indivíduos gerados aleatoriamente (para manter a diversidade e evitar ótimos locais).
+    *   Selecionar os melhores indivíduos entre a população original e os clones para formar a memória explícita (Abm).
+    *   Manter o restante como repertório populacional (Abr) e substituir uma porcentagem de indivíduos de baixa afinidade por novos indivíduos gerados aleatoriamente (para manter a diversidade e evitar ótimos locais).
 
 ---
 
@@ -53,15 +53,15 @@ O algoritmo será estruturado em uma classe `ClonalG_Clustering` com os seguinte
     *   **Tamanho da população de anticorpos** ($N$).
     *   **Taxa de seleção** (percentual de melhores clones mantidos).
     *   **Fator de mutação** (intensidade da busca local / decaimento da mutação).
-*   Documentar a evolução do Índice Silhouette para diferentes configurações em cada um dos 5 datasets.
+*   Documentar a evolução da afinidade interna e avaliar o Silhouette final para diferentes configurações em cada um dos 5 datasets.
 
 ---
 
-## Etapa 4: Desafio do Número de Clusters ($k$) [CONCLUÍDO]
-**Objetivo:** Investigar a descoberta orgânica de clusters.
+## Etapa 4: Definição do Número de Clusters ($k$) [CONCLUÍDO]
+**Objetivo:** Executar o ClonalG com \(k\) fixo.
 
-*   **Abordagem Inicial:** O algoritmo pode começar com um número dinâmico de centroides por anticorpo, permitindo que a mutação adicione ou remova centroides. A função objetivo (Silhouette) penaliza automaticamente números inadequados de clusters.
-*   **Análise:** Verificar se o ClonalG consegue convergir para o número ideal de grupos sem que o $k$ seja passado como parâmetro fixo.
+*   **Abordagem:** Definir \(k\) previamente nas constantes do script de execução.
+*   **Análise:** Avaliar o resultado final por Silhouette, sem alterar \(k\) durante a execução.
 
 ---
 

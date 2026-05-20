@@ -27,16 +27,12 @@ def safe_silhouette(data, labels):
     return silhouette_score(data, labels)
 
 
-def load_best_configs():
-    if os.path.exists(BEST_CONFIG_PATH):
-        df = pd.read_csv(BEST_CONFIG_PATH)
-        return {int(row['DataSet']): row.to_dict() for _, row in df.iterrows()}
-
+def default_configs():
     configs = {}
     for ds_id, k in DEFAULT_K_VALUES.items():
         configs[ds_id] = {
             'DataSet': ds_id,
-            'k_descoberto_clonalg': k,
+            'k': k,
             'n_antibodies': 15,
             'rho': 2.0,
             'beta': 10,
@@ -44,6 +40,20 @@ def load_best_configs():
             'selection_rate': 1.0,
         }
     return configs
+
+
+def load_best_configs():
+    if os.path.exists(BEST_CONFIG_PATH):
+        df = pd.read_csv(BEST_CONFIG_PATH)
+        if 'k' not in df.columns:
+            return default_configs()
+        return {int(row['DataSet']): row.to_dict() for _, row in df.iterrows()}
+
+    return default_configs()
+
+
+def get_config_k(cfg):
+    return int(cfg['k'])
 
 
 def project_2d(data, *centers):
@@ -65,13 +75,13 @@ def run_clonalg(data, cfg, ds_id):
     histories = []
     best = {'score': -2.0, 'centroids': None, 'labels': None, 'history': None}
 
-    k = int(cfg.get('k_descoberto_clonalg', cfg.get('k')))
+    k = get_config_k(cfg)
 
     for run in range(N_RUNS):
         np.random.seed(RANDOM_SEED + ds_id * 100 + run)
         sia = ClonalG(
             n_antibodies=int(cfg['n_antibodies']),
-            k_range=(k, k),
+            k=k,
             rho=float(cfg['rho']),
             beta=float(cfg['beta']),
             replace_rate=float(cfg['replace_rate']),
@@ -88,7 +98,6 @@ def run_clonalg(data, cfg, ds_id):
     return {
         'scores': scores,
         'mean': float(np.mean(scores)),
-        'std': float(np.std(scores)),
         'best': best,
         'histories': histories,
     }
@@ -123,9 +132,9 @@ def plot_comparison(ds_id, data, clonalg_result, kmeans, labels_km, score_km):
 
     fig, ax = plt.subplots(figsize=(8, 4.8))
     ax.plot(best['history'], color='#2f6f73', linewidth=2)
-    ax.set_title(f'DS{ds_id} - evolucao do melhor ClonalG')
+    ax.set_title(f'DS{ds_id} - evolucao da afinidade interna do ClonalG')
     ax.set_xlabel('Geracao')
-    ax.set_ylabel('Silhouette')
+    ax.set_ylabel('Afinidade euclidiana')
     ax.grid(alpha=0.25)
     plt.tight_layout()
     plt.savefig(f'{OUTPUT_DIR}/evolucao_clonalg_ds{ds_id}.png', dpi=170)
@@ -147,7 +156,7 @@ def main():
 
         data = pd.read_csv(path, header=None).values
         cfg = configs[ds_id]
-        k = int(cfg.get('k_descoberto_clonalg', cfg.get('k')))
+        k = get_config_k(cfg)
 
         clonalg_result = run_clonalg(data, cfg, ds_id)
 
@@ -157,27 +166,26 @@ def main():
 
         rows.append({
             'DataSet': ds_id,
-            'k_descoberto_clonalg': k,
+            'k': k,
             'n_antibodies': int(cfg['n_antibodies']),
             'rho': float(cfg['rho']),
             'beta': float(cfg['beta']),
             'replace_rate': float(cfg['replace_rate']),
             'selection_rate': float(cfg.get('selection_rate', 1.0)),
             'ClonalG_media': clonalg_result['mean'],
-            'ClonalG_desvio': clonalg_result['std'],
             'ClonalG_melhor': clonalg_result['best']['score'],
             'KMeans': score_km,
             'Delta_media': clonalg_result['mean'] - score_km,
         })
 
-        print(f"DS{ds_id}: k={k} ClonalG={clonalg_result['mean']:.4f} +- {clonalg_result['std']:.4f} | k-Means={score_km:.4f}", flush=True)
+        print(f"DS{ds_id}: k={k} ClonalG={clonalg_result['mean']:.4f} | k-Means={score_km:.4f}", flush=True)
         plot_comparison(ds_id, data, clonalg_result, kmeans, labels_km, score_km)
 
     df = pd.DataFrame(rows)
     df.to_csv(f'{OUTPUT_DIR}/tabela_resultados.csv', index=False)
 
     md = df.copy()
-    for col in ['ClonalG_media', 'ClonalG_desvio', 'ClonalG_melhor', 'KMeans', 'Delta_media']:
+    for col in ['ClonalG_media', 'ClonalG_melhor', 'KMeans', 'Delta_media']:
         md[col] = md[col].round(4)
     open(f'{OUTPUT_DIR}/tabela_resultados.md', 'w').write(dataframe_to_markdown(md, index=False))
     print(f'\nResultados salvos em {OUTPUT_DIR}/')

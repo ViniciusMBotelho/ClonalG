@@ -2,8 +2,8 @@
 Execucao configurada do ClonalG e comparacao com k-Means.
 
 Este script nao faz mais busca em grade. A cada execucao, os parametros do
-ClonalG sao definidos nas constantes no topo deste arquivo. O ClonalG descobre
-o k dentro da faixa informada e o k-Means e executado depois com esse mesmo k.
+ClonalG sao definidos nas constantes no topo deste arquivo. O k e fixo em toda
+a execucao.
 """
 
 import os
@@ -27,13 +27,12 @@ OUTPUT_DIR = 'resultados/etapa3_parametros'
 RANDOM_SEED = 42
 
 # Edite estes valores para controlar a proxima execucao.
-N_ANTIBODIES = 15
+N_ANTIBODIES = 50
 RHO = 2.0
 BETA = 10.0
 REPLACE_RATE = 0.10
 SELECTION_RATE = 0.85
-K_MIN = 2
-K_MAX = 6
+K = 3
 RUNS = 3
 ITERATIONS = 50
 
@@ -44,8 +43,7 @@ CONFIG = {
     'beta': BETA,
     'replace_rate': REPLACE_RATE,
     'selection_rate': SELECTION_RATE,
-    'k_min': K_MIN,
-    'k_max': K_MAX,
+    'k': K,
     'runs': RUNS,
     'iterations': ITERATIONS,
     'seed': RANDOM_SEED,
@@ -55,10 +53,8 @@ CONFIG = {
 def validate_config(config):
     if config['n_antibodies'] <= 0:
         raise ValueError('n_antibodies deve ser maior que zero.')
-    if config['k_min'] < 2:
-        raise ValueError('k_min deve ser pelo menos 2 para permitir Silhouette.')
-    if config['k_max'] < config['k_min']:
-        raise ValueError('k_max deve ser maior ou igual a k_min.')
+    if config['k'] < 2:
+        raise ValueError('k deve ser pelo menos 2 para permitir Silhouette.')
     if not 0 <= config['replace_rate'] <= 1:
         raise ValueError('replace_rate deve estar entre 0 e 1.')
     if not 0 < config['selection_rate'] <= 1:
@@ -89,7 +85,7 @@ def run_clonalg_once(data, config, ds_id, run):
     np.random.seed(config['seed'] + ds_id * 100 + run)
     sia = ClonalG(
         n_antibodies=config['n_antibodies'],
-        k_range=(config['k_min'], config['k_max']),
+        k=config['k'],
         rho=config['rho'],
         beta=config['beta'],
         replace_rate=config['replace_rate'],
@@ -108,35 +104,57 @@ def run_clonalg_once(data, config, ds_id, run):
 def evaluate_dataset(data, ds_id, config):
     runs = [run_clonalg_once(data, config, ds_id, run) for run in range(config['runs'])]
     scores = [run['score'] for run in runs]
-    ks = [run['k'] for run in runs]
-    best_idx = int(np.argmax(scores))
-    best_k = ks[best_idx]
+    k = config['k']
 
-    kmeans = KMeans(n_clusters=best_k, n_init=30, random_state=config['seed'])
+    kmeans = KMeans(n_clusters=k, n_init=30, random_state=config['seed'])
     labels_km = kmeans.fit_predict(data)
     kmeans_score = safe_silhouette(data, labels_km)
 
-    return {
+    iteration_records = []
+    run_records = []
+    for run_idx, run_result in enumerate(runs, start=1):
+        run_records.append({
+            'DataSet': ds_id,
+            'Run': run_idx,
+            'k': k,
+            'n_antibodies': config['n_antibodies'],
+            'rho': config['rho'],
+            'beta': config['beta'],
+            'replace_rate': config['replace_rate'],
+            'selection_rate': config['selection_rate'],
+            'Silhouette_Final': run_result['score'],
+        })
+        for iteration, affinity in enumerate(run_result['history'], start=1):
+            iteration_records.append({
+                'DataSet': ds_id,
+                'Run': run_idx,
+                'Iteracao': iteration,
+                'k': k,
+                'n_antibodies': config['n_antibodies'],
+                'rho': config['rho'],
+                'beta': config['beta'],
+                'replace_rate': config['replace_rate'],
+                'selection_rate': config['selection_rate'],
+                'Afinidade_Euclidiana': affinity,
+            })
+
+    result = {
         'DataSet': ds_id,
-        'k_descoberto_clonalg': best_k,
-        'k_descoberto_moda': int(pd.Series(ks).mode().iloc[0]),
-        'ks_descobertos': ','.join(str(k) for k in ks),
+        'k': k,
         'n_antibodies': config['n_antibodies'],
         'rho': config['rho'],
         'beta': config['beta'],
         'replace_rate': config['replace_rate'],
         'selection_rate': config['selection_rate'],
-        'k_min': config['k_min'],
-        'k_max': config['k_max'],
         'runs': config['runs'],
         'iterations': config['iterations'],
         'ClonalG_Media_Validacao': float(np.mean(scores)),
-        'ClonalG_Desvio_Validacao': float(np.std(scores)),
         'ClonalG_Melhor_Validacao': float(np.max(scores)),
         'ClonalG_Pior_Validacao': float(np.min(scores)),
         'KMeans_Silhouette_mesmo_k': float(kmeans_score),
         'Delta_Validacao_vs_KMeans_mesmo_k': float(np.mean(scores) - kmeans_score),
     }
+    return result, iteration_records, run_records
 
 
 def plot_final_comparison(df):
@@ -149,10 +167,10 @@ def plot_final_comparison(df):
     )
     plot_df['Algoritmo'] = plot_df['Algoritmo'].replace({
         'ClonalG_Media_Validacao': 'ClonalG',
-        'KMeans_Silhouette_mesmo_k': 'k-Means no k do ClonalG',
+        'KMeans_Silhouette_mesmo_k': 'k-Means no mesmo k',
     })
     sns.barplot(data=plot_df, x='DataSet', y='Silhouette', hue='Algoritmo', palette=['#2f6f73', '#6b6f76'], ax=ax)
-    ax.set_title('ClonalG configurado vs k-Means usando k descoberto pelo ClonalG')
+    ax.set_title('ClonalG configurado vs k-Means usando k fixo')
     ax.set_xlabel('DataSet')
     ax.set_ylabel('Silhouette')
     ax.grid(axis='y', alpha=0.25)
@@ -164,10 +182,11 @@ def plot_final_comparison(df):
 def write_markdown_report(df, config):
     lines = [
         '# Execucao Configurada do ClonalG\n',
-        '- Fluxo: os parametros sao definidos nas constantes do script; o ClonalG descobre k; o k-Means usa esse k.',
+        '- Fluxo: os parametros sao definidos nas constantes do script; o ClonalG usa k fixo.',
+        '- Afinidade interna do ClonalG: distancia Euclidiana media ao centroide mais proximo, com sinal invertido.',
+        '- Silhouette: usado apenas na validacao final das execucoes e na comparacao com k-Means.',
         f'- Parametros: N={config["n_antibodies"]}, rho={config["rho"]}, beta={config["beta"]}, '
-        f'replace_rate={config["replace_rate"]}, selection_rate={config["selection_rate"]}',
-        f'- Faixa de k: {config["k_min"]} a {config["k_max"]}',
+        f'replace_rate={config["replace_rate"]}, selection_rate={config["selection_rate"]}, k={config["k"]}',
         f'- Repeticoes por dataset: {config["runs"]}',
         f'- Geracoes por repeticao: {config["iterations"]}',
         '',
@@ -177,7 +196,6 @@ def write_markdown_report(df, config):
     display = df.copy()
     for col in [
         'ClonalG_Media_Validacao',
-        'ClonalG_Desvio_Validacao',
         'ClonalG_Melhor_Validacao',
         'KMeans_Silhouette_mesmo_k',
         'Delta_Validacao_vs_KMeans_mesmo_k',
@@ -187,7 +205,37 @@ def write_markdown_report(df, config):
     open(f'{OUTPUT_DIR}/melhores_configuracoes.md', 'w').write('\n'.join(lines))
 
 
-def save_outputs(df, config):
+def write_iteration_output(iteration_df, run_df, config):
+    lines = [
+        '# Output por Iteracao do ClonalG\n',
+        '## Parametros\n',
+        f'- k: {config["k"]}',
+        f'- n_antibodies: {config["n_antibodies"]}',
+        f'- rho: {config["rho"]}',
+        f'- beta: {config["beta"]}',
+        f'- replace_rate: {config["replace_rate"]}',
+        f'- selection_rate: {config["selection_rate"]}',
+        f'- runs: {config["runs"]}',
+        f'- iterations: {config["iterations"]}',
+        '',
+        '## Saida final por run\n',
+    ]
+
+    run_display = run_df.copy()
+    if not run_display.empty:
+        run_display['Silhouette_Final'] = run_display['Silhouette_Final'].round(4)
+    lines.append(dataframe_to_markdown(run_display, index=False))
+
+    lines.extend(['', '## Afinidade interna por iteracao\n'])
+    iteration_display = iteration_df.copy()
+    if not iteration_display.empty:
+        iteration_display['Afinidade_Euclidiana'] = iteration_display['Afinidade_Euclidiana'].round(6)
+    lines.append(dataframe_to_markdown(iteration_display, index=False))
+
+    open(f'{OUTPUT_DIR}/output_iteracoes.md', 'w').write('\n'.join(lines))
+
+
+def save_outputs(df, config, iteration_df, run_df):
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     df.to_csv(f'{OUTPUT_DIR}/execucao_configurada.csv', index=False)
     df.to_csv(f'{OUTPUT_DIR}/melhores_configuracoes.csv', index=False)
@@ -195,12 +243,13 @@ def save_outputs(df, config):
     df.to_csv(f'{OUTPUT_DIR}/resultados_sweep.csv', index=False)
 
     # Nome mantido por compatibilidade com scripts e relatorios antigos.
-    df[['DataSet', 'k_descoberto_clonalg', 'KMeans_Silhouette_mesmo_k']].rename(
-        columns={'k_descoberto_clonalg': 'k', 'KMeans_Silhouette_mesmo_k': 'KMeans_Silhouette'}
+    df[['DataSet', 'k', 'KMeans_Silhouette_mesmo_k']].rename(
+        columns={'KMeans_Silhouette_mesmo_k': 'KMeans_Silhouette'}
     ).to_csv(f'{OUTPUT_DIR}/kmeans_por_k.csv', index=False)
 
     plot_final_comparison(df)
     write_markdown_report(df, config)
+    write_iteration_output(iteration_df, run_df, config)
 
 
 def remove_grid_artifacts():
@@ -232,19 +281,25 @@ def main():
         return
 
     rows = []
+    iteration_records = []
+    run_records = []
     for ds_id, data in datasets.items():
-        result = evaluate_dataset(data, ds_id, config)
+        result, ds_iteration_records, ds_run_records = evaluate_dataset(data, ds_id, config)
         rows.append(result)
+        iteration_records.extend(ds_iteration_records)
+        run_records.extend(ds_run_records)
         print(
-            f"DS{ds_id}: k={result['k_descoberto_clonalg']} "
-            f"ClonalG={result['ClonalG_Media_Validacao']:.4f} +- {result['ClonalG_Desvio_Validacao']:.4f} "
+            f"DS{ds_id}: k={result['k']} "
+            f"ClonalG={result['ClonalG_Media_Validacao']:.4f} "
             f"| k-Means={result['KMeans_Silhouette_mesmo_k']:.4f}",
             flush=True,
         )
 
     df = pd.DataFrame(rows)
+    iteration_df = pd.DataFrame(iteration_records)
+    run_df = pd.DataFrame(run_records)
     remove_grid_artifacts()
-    save_outputs(df, config)
+    save_outputs(df, config, iteration_df, run_df)
     print(f'\nResultados salvos em {OUTPUT_DIR}/')
 
 

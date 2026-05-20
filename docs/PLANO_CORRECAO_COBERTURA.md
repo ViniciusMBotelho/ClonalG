@@ -8,12 +8,12 @@
 ## 2. Ajuste de parametros
 - Executar uma busca em grade para `k`, tamanho da populacao, `rho`, `beta` e `replace_rate`.
 - Repetir cada configuracao varias vezes para reduzir ruido estocastico.
-- Registrar media, desvio padrao, melhor e pior Silhouette por configuracao.
+- Registrar media, melhor e pior Silhouette por configuracao.
 - Comparar cada melhor configuracao do ClonalG com k-Means usando o mesmo `k`.
 - Salvar CSV detalhado, tabela Markdown com melhores parametros e graficos de ranking/impacto.
 
 ## 3. Comparacao final
-- Trocar resultado unico por media e desvio de multiplas execucoes do ClonalG.
+- Trocar resultado unico por media de multiplas execucoes do ClonalG.
 - Usar k-Means como baseline deterministico com `n_init` alto e `random_state` fixo.
 - Apresentar vantagem/desvantagem do ClonalG por dataset com base na media.
 
