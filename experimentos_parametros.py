@@ -124,7 +124,7 @@ def evaluate_dataset(data, ds_id, config):
             'selection_rate': config['selection_rate'],
             'Silhouette_Final': run_result['score'],
         })
-        for iteration, affinity in enumerate(run_result['history'], start=1):
+        for iteration, silhouette in enumerate(run_result['history'], start=1):
             iteration_records.append({
                 'DataSet': ds_id,
                 'Run': run_idx,
@@ -135,7 +135,7 @@ def evaluate_dataset(data, ds_id, config):
                 'beta': config['beta'],
                 'replace_rate': config['replace_rate'],
                 'selection_rate': config['selection_rate'],
-                'Afinidade_Euclidiana': affinity,
+                'Silhouette': silhouette,
             })
 
     result = {
@@ -226,10 +226,10 @@ def write_iteration_output(iteration_df, run_df, config):
         run_display['Silhouette_Final'] = run_display['Silhouette_Final'].round(4)
     lines.append(dataframe_to_markdown(run_display, index=False))
 
-    lines.extend(['', '## Afinidade interna por iteracao\n'])
+    lines.extend(['', '## Silhouette por iteracao\n'])
     iteration_display = iteration_df.copy()
     if not iteration_display.empty:
-        iteration_display['Afinidade_Euclidiana'] = iteration_display['Afinidade_Euclidiana'].round(6)
+        iteration_display['Silhouette'] = iteration_display['Silhouette'].round(6)
     lines.append(dataframe_to_markdown(iteration_display, index=False))
 
     open(f'{OUTPUT_DIR}/output_iteracoes.md', 'w').write('\n'.join(lines))

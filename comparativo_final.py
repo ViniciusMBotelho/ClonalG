@@ -132,9 +132,9 @@ def plot_comparison(ds_id, data, clonalg_result, kmeans, labels_km, score_km):
 
     fig, ax = plt.subplots(figsize=(8, 4.8))
     ax.plot(best['history'], color='#2f6f73', linewidth=2)
-    ax.set_title(f'DS{ds_id} - evolucao da afinidade interna do ClonalG')
+    ax.set_title(f'DS{ds_id} - evolucao do Silhouette do ClonalG')
     ax.set_xlabel('Geracao')
-    ax.set_ylabel('Afinidade euclidiana')
+    ax.set_ylabel('Silhouette')
     ax.grid(alpha=0.25)
     plt.tight_layout()
     plt.savefig(f'{OUTPUT_DIR}/evolucao_clonalg_ds{ds_id}.png', dpi=170)

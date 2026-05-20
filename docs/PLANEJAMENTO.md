@@ -53,7 +53,7 @@ O algoritmo será estruturado em uma classe `ClonalG_Clustering` com os seguinte
     *   **Tamanho da população de anticorpos** ($N$).
     *   **Taxa de seleção** (percentual de melhores clones mantidos).
     *   **Fator de mutação** (intensidade da busca local / decaimento da mutação).
-*   Documentar a evolução da afinidade interna e avaliar o Silhouette final para diferentes configurações em cada um dos 5 datasets.
+*   Documentar a evolução do Índice Silhouette para diferentes configurações em cada um dos 5 datasets, mantendo a afinidade interna baseada em distância Euclidiana.
 
 ---
 

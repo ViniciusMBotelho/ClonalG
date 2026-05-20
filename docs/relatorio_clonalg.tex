@@ -132,7 +132,7 @@ A afinidade interna do ClonalG foi medida pela distancia Euclidiana media das am
 af(A) = -\frac{1}{n}\sum_{i=1}^{n}\min_{c_j \in A} d(x_i, c_j)
 \]
 
-Assim, anticorpos que deixam as amostras mais proximas de seus centroides recebem valores menos negativos e sao preferidos na selecao e clonagem. O indice Silhouette nao participa da afinidade interna; ele e usado apenas na avaliacao final das particoes e na comparacao com k-Means. Para uma amostra \(i\), o Silhouette e definido por:
+Assim, anticorpos que deixam as amostras mais proximas de seus centroides recebem valores menos negativos e sao preferidos na selecao e clonagem. O indice Silhouette nao participa da afinidade interna; ele e usado para registrar a evolucao da qualidade ao longo das geracoes, para avaliacao final das particoes e para comparacao com k-Means. Para uma amostra \(i\), o Silhouette e definido por:
 
 \[
 s(i) = \frac{b(i) - a(i)}{\max(a(i), b(i))}
@@ -266,8 +266,8 @@ DataSet & k configurado & Melhor Silhouette \\
 
 Os valores de \(k\) foram definidos antes da execucao; em seguida, esses valores foram repassados ao k-Means para uma comparacao com a mesma quantidade de clusters. Assim, a hipermutacao somatica atua apenas sobre as posicoes dos centroides.
 
-\subsection{Evolucao da afinidade interna}
-Os graficos de evolucao mostram a melhora progressiva da afinidade Euclidiana interna durante as geracoes. Como o ClonalG preserva os melhores anticorpos em \(Abm\), a curva tende a se estabilizar quando a populacao encontra uma configuracao de centroides de alta afinidade.
+\subsection{Evolucao do Silhouette}
+Os graficos de evolucao mostram a melhora progressiva do indice Silhouette durante as geracoes. A selecao e a clonagem continuam usando afinidade Euclidiana interna; o Silhouette e calculado sobre o melhor anticorpo de cada geracao apenas para registro experimental e atendimento aos entregaveis.
 
 \begin{figure}[H]
 \centering
@@ -455,7 +455,7 @@ Outra limitacao e o uso do Silhouette como criterio externo de validacao. Embora
 \section{Conclusao}
 O trabalho implementou e avaliou o ClonalG para agrupamento de dados, contemplando reconhecimento por distancia Euclidiana, proliferacao proporcional a afinidade, hipermutacao inversamente proporcional a afinidade, selecao, memoria populacional e substituicao para diversidade. Os cinco datasets foram pre-processados, normalizados e analisados visualmente.
 
-A comparacao com k-Means mostrou que o ClonalG e competitivo, com empate nos DataSets 1 e 5, vantagem no DataSet 4 e desempenho levemente inferior nos DataSets 2 e 3. O \(k\) permaneceu fixo em cada execucao, usando o Silhouette apenas como criterio externo de validacao.
+A comparacao com k-Means mostrou que o ClonalG e competitivo, com empate nos DataSets 1 e 5, vantagem no DataSet 4 e desempenho levemente inferior nos DataSets 2 e 3. O \(k\) permaneceu fixo em cada execucao, usando o Silhouette para registrar a evolucao da qualidade e como criterio externo de validacao.
 
 Como melhoria futura, recomenda-se ampliar a busca de parametros, aumentar o numero de repeticoes, testar outros criterios de validacao e analisar com mais profundidade o equilibrio entre memoria imunologica e diversidade populacional.
 

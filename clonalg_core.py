@@ -1,4 +1,5 @@
 import numpy as np
+from sklearn.metrics import silhouette_score
 from scipy.spatial.distance import cdist
 
 class ClonalG:
@@ -24,7 +25,7 @@ class ClonalG:
         :param replace_rate: Proporção de anticorpos Abr substituídos por novos.
         :param selection_rate: Proporção da memória Abm usada para clonagem.
         :param memory_rate: Proporção da população total preservada explicitamente como memória Abm.
-        :param silhouette_sample_size: Mantido por compatibilidade; Silhouette não é usado na afinidade interna.
+        :param silhouette_sample_size: Tamanho da amostra usada apenas no histórico de Silhouette; None usa todos os dados.
         """
         self.n_antibodies = n_antibodies
         self.k = int(k)
@@ -75,6 +76,18 @@ class ClonalG:
         raw_scores = np.array(raw_scores)
         af_norm = self._normalize_affinities(raw_scores)
         return raw_scores, af_norm
+
+    def _calculate_silhouette(self, data, antibody):
+        labels = self.predict(data, antibody)
+        if len(np.unique(labels)) < 2:
+            return -1.0
+        sample_size = None
+        if self.silhouette_sample_size is not None and len(data) > self.silhouette_sample_size:
+            sample_size = self.silhouette_sample_size
+        try:
+            return float(silhouette_score(data, labels, sample_size=sample_size, random_state=42))
+        except ValueError:
+            return -1.0
 
     @staticmethod
     def _normalize_affinities(raw_scores):
@@ -149,11 +162,15 @@ class ClonalG:
                     np.concatenate((self.memory_affinities, self.population_affinities)),
                 )
             
-            best_score = np.max(self.affinities)
-            history.append(best_score)
+            best_affinity = np.max(self.affinities)
+            best_silhouette = self._calculate_silhouette(data, self.memory[0])
+            history.append(best_silhouette)
             
             if verbose and (it % 10 == 0 or it == n_iterations - 1):
-                print(f"Geração {it}: Melhor afinidade euclidiana = {best_score:.4f} (k={self.k})")
+                print(
+                    f"Geração {it}: Silhouette = {best_silhouette:.4f} "
+                    f"| afinidade euclidiana = {best_affinity:.4f} (k={self.k})"
+                )
                 
         return self.memory[0], history
 
