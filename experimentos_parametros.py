@@ -1,15 +1,11 @@
 """
-Busca de parametros do ClonalG e comparacao com k-Means.
+Execucao configurada do ClonalG e comparacao com k-Means.
 
-Fluxo atual:
-1. Carrega os 5 datasets pre-processados.
-2. Executa uma busca em grade do ClonalG com k variavel em K_RANGE.
-3. Registra o k descoberto pelo melhor anticorpo de cada configuracao.
-4. Executa k-Means usando exatamente o k descoberto pelo ClonalG.
-5. Revalida as melhores configuracoes e gera CSVs, tabelas Markdown e graficos.
+Este script nao faz mais busca em grade. A cada execucao, os parametros do
+ClonalG sao definidos nas constantes no topo deste arquivo. O ClonalG descobre
+o k dentro da faixa informada e o k-Means e executado depois com esse mesmo k.
 """
 
-import itertools
 import os
 import warnings
 
@@ -28,21 +24,49 @@ from markdown_utils import dataframe_to_markdown
 warnings.filterwarnings('ignore')
 
 OUTPUT_DIR = 'resultados/etapa3_parametros'
-os.makedirs(OUTPUT_DIR, exist_ok=True)
-
-K_RANGE = range(2, 7)
-SEARCH_RUNS = 1
-VALIDATION_RUNS = 3
-N_ITERATIONS = 18
 RANDOM_SEED = 42
 
-PARAM_GRID = {
-    'n_antibodies': [10, 20],
-    'rho': [1.0, 2.5],
-    'beta': [10],
-    'replace_rate': [0.05, 0.20],
-    'selection_rate': [0.50, 0.85],
+# Edite estes valores para controlar a proxima execucao.
+N_ANTIBODIES = 15
+RHO = 2.0
+BETA = 10.0
+REPLACE_RATE = 0.10
+SELECTION_RATE = 0.85
+K_MIN = 2
+K_MAX = 6
+RUNS = 3
+ITERATIONS = 50
+
+
+CONFIG = {
+    'n_antibodies': N_ANTIBODIES,
+    'rho': RHO,
+    'beta': BETA,
+    'replace_rate': REPLACE_RATE,
+    'selection_rate': SELECTION_RATE,
+    'k_min': K_MIN,
+    'k_max': K_MAX,
+    'runs': RUNS,
+    'iterations': ITERATIONS,
+    'seed': RANDOM_SEED,
 }
+
+
+def validate_config(config):
+    if config['n_antibodies'] <= 0:
+        raise ValueError('n_antibodies deve ser maior que zero.')
+    if config['k_min'] < 2:
+        raise ValueError('k_min deve ser pelo menos 2 para permitir Silhouette.')
+    if config['k_max'] < config['k_min']:
+        raise ValueError('k_max deve ser maior ou igual a k_min.')
+    if not 0 <= config['replace_rate'] <= 1:
+        raise ValueError('replace_rate deve estar entre 0 e 1.')
+    if not 0 < config['selection_rate'] <= 1:
+        raise ValueError('selection_rate deve estar no intervalo (0, 1].')
+    if config['runs'] <= 0:
+        raise ValueError('runs deve ser maior que zero.')
+    if config['iterations'] <= 0:
+        raise ValueError('iterations deve ser maior que zero.')
 
 
 def load_datasets():
@@ -61,168 +85,63 @@ def safe_silhouette(data, labels):
     return silhouette_score(data, labels)
 
 
-def evaluate_kmeans_for_k(data, k):
-    model = KMeans(n_clusters=int(k), n_init=30, random_state=RANDOM_SEED)
-    labels = model.fit_predict(data)
-    return safe_silhouette(data, labels)
-
-
-def iter_param_grid():
-    keys = list(PARAM_GRID.keys())
-    for values in itertools.product(*(PARAM_GRID[key] for key in keys)):
-        yield dict(zip(keys, values))
-
-
-def run_clonalg_once(data, params, seed):
-    np.random.seed(seed)
+def run_clonalg_once(data, config, ds_id, run):
+    np.random.seed(config['seed'] + ds_id * 100 + run)
     sia = ClonalG(
-        n_antibodies=int(params['n_antibodies']),
-        k_range=(min(K_RANGE), max(K_RANGE)),
-        rho=float(params['rho']),
-        beta=float(params['beta']),
-        replace_rate=float(params['replace_rate']),
-        selection_rate=float(params['selection_rate']),
+        n_antibodies=config['n_antibodies'],
+        k_range=(config['k_min'], config['k_max']),
+        rho=config['rho'],
+        beta=config['beta'],
+        replace_rate=config['replace_rate'],
+        selection_rate=config['selection_rate'],
     )
-    best_ab, history = sia.fit(data, n_iterations=N_ITERATIONS, verbose=False)
+    best_ab, history = sia.fit(data, n_iterations=config['iterations'], verbose=False)
     labels = sia.predict(data, best_ab)
     score = safe_silhouette(data, labels)
-    return score, len(best_ab), history
-
-
-def summarize_runs(data, params, n_runs, seed_offset=0):
-    scores = []
-    discovered_ks = []
-    best_history = None
-    best_score = -2.0
-    best_k = None
-
-    for run in range(n_runs):
-        seed = RANDOM_SEED + seed_offset + run
-        score, discovered_k, history = run_clonalg_once(data, params, seed)
-        scores.append(score)
-        discovered_ks.append(discovered_k)
-        if score > best_score:
-            best_score = score
-            best_k = discovered_k
-            best_history = history
-
     return {
-        'ClonalG_Media': float(np.mean(scores)),
-        'ClonalG_Desvio': float(np.std(scores)),
-        'ClonalG_Melhor': float(np.max(scores)),
-        'ClonalG_Pior': float(np.min(scores)),
-        'k_descoberto_melhor': int(best_k),
-        'k_descoberto_moda': int(pd.Series(discovered_ks).mode().iloc[0]),
-        'ks_descobertos': ','.join(str(k) for k in discovered_ks),
-        'Historico_Melhor': best_history,
+        'score': score,
+        'k': len(best_ab),
+        'history': history,
     }
 
 
-def search_dataset(data, ds_id):
-    print(f'\nDS{ds_id}: ClonalG buscando k em {min(K_RANGE)}..{max(K_RANGE)}', flush=True)
-    rows = []
-    configs = list(iter_param_grid())
+def evaluate_dataset(data, ds_id, config):
+    runs = [run_clonalg_once(data, config, ds_id, run) for run in range(config['runs'])]
+    scores = [run['score'] for run in runs]
+    ks = [run['k'] for run in runs]
+    best_idx = int(np.argmax(scores))
+    best_k = ks[best_idx]
 
-    for idx, params in enumerate(configs, start=1):
-        summary = summarize_runs(data, params, SEARCH_RUNS, seed_offset=idx * 100)
-        k_clonalg = summary['k_descoberto_melhor']
-        kmeans_score = evaluate_kmeans_for_k(data, k_clonalg)
-        row = {
-            'DataSet': ds_id,
-            'k_descoberto_clonalg': k_clonalg,
-            'k_descoberto_moda': summary['k_descoberto_moda'],
-            'ks_descobertos': summary['ks_descobertos'],
-            **params,
-            'KMeans_Silhouette_mesmo_k': kmeans_score,
-            'ClonalG_Media': summary['ClonalG_Media'],
-            'ClonalG_Desvio': summary['ClonalG_Desvio'],
-            'ClonalG_Melhor': summary['ClonalG_Melhor'],
-            'ClonalG_Pior': summary['ClonalG_Pior'],
-        }
-        row['Delta_Media_vs_KMeans_mesmo_k'] = row['ClonalG_Media'] - row['KMeans_Silhouette_mesmo_k']
-        rows.append(row)
+    kmeans = KMeans(n_clusters=best_k, n_init=30, random_state=config['seed'])
+    labels_km = kmeans.fit_predict(data)
+    kmeans_score = safe_silhouette(data, labels_km)
 
-        if idx % 8 == 0 or idx == len(configs):
-            print(f'  {idx:>3}/{len(configs)} configs avaliadas', flush=True)
-
-    df = pd.DataFrame(rows).sort_values('ClonalG_Media', ascending=False)
-    return df
-
-
-def validate_best_configs(datasets, search_df):
-    rows = []
-
-    for ds_id, data in datasets.items():
-        top_configs = search_df[search_df['DataSet'] == ds_id].head(2)
-        for rank, (_, cfg) in enumerate(top_configs.iterrows(), start=1):
-            params = {
-                'n_antibodies': int(cfg['n_antibodies']),
-                'rho': float(cfg['rho']),
-                'beta': float(cfg['beta']),
-                'replace_rate': float(cfg['replace_rate']),
-                'selection_rate': float(cfg['selection_rate']),
-            }
-            summary = summarize_runs(data, params, VALIDATION_RUNS, seed_offset=9000 + ds_id * 100 + rank * 10)
-            k_clonalg = summary['k_descoberto_melhor']
-            kmeans_score = evaluate_kmeans_for_k(data, k_clonalg)
-            row = {
-                'DataSet': ds_id,
-                'RankBusca': rank,
-                'k_descoberto_clonalg': k_clonalg,
-                'k_descoberto_moda': summary['k_descoberto_moda'],
-                'ks_descobertos': summary['ks_descobertos'],
-                **params,
-                'ClonalG_Media_Validacao': summary['ClonalG_Media'],
-                'ClonalG_Desvio_Validacao': summary['ClonalG_Desvio'],
-                'ClonalG_Melhor_Validacao': summary['ClonalG_Melhor'],
-                'ClonalG_Pior_Validacao': summary['ClonalG_Pior'],
-                'KMeans_Silhouette_mesmo_k': kmeans_score,
-            }
-            row['Delta_Validacao_vs_KMeans_mesmo_k'] = row['ClonalG_Media_Validacao'] - row['KMeans_Silhouette_mesmo_k']
-            rows.append(row)
-
-    return pd.DataFrame(rows)
+    return {
+        'DataSet': ds_id,
+        'k_descoberto_clonalg': best_k,
+        'k_descoberto_moda': int(pd.Series(ks).mode().iloc[0]),
+        'ks_descobertos': ','.join(str(k) for k in ks),
+        'n_antibodies': config['n_antibodies'],
+        'rho': config['rho'],
+        'beta': config['beta'],
+        'replace_rate': config['replace_rate'],
+        'selection_rate': config['selection_rate'],
+        'k_min': config['k_min'],
+        'k_max': config['k_max'],
+        'runs': config['runs'],
+        'iterations': config['iterations'],
+        'ClonalG_Media_Validacao': float(np.mean(scores)),
+        'ClonalG_Desvio_Validacao': float(np.std(scores)),
+        'ClonalG_Melhor_Validacao': float(np.max(scores)),
+        'ClonalG_Pior_Validacao': float(np.min(scores)),
+        'KMeans_Silhouette_mesmo_k': float(kmeans_score),
+        'Delta_Validacao_vs_KMeans_mesmo_k': float(np.mean(scores) - kmeans_score),
+    }
 
 
-def plot_rankings(search_df):
-    for ds_id in sorted(search_df['DataSet'].unique()):
-        top = search_df[search_df['DataSet'] == ds_id].head(12).copy()
-        top['Config'] = [f"#{i}" for i in range(1, len(top) + 1)]
-
-        fig, ax = plt.subplots(figsize=(11, 5.5))
-        sns.barplot(data=top, x='Config', y='ClonalG_Media', hue='k_descoberto_clonalg', palette='viridis', ax=ax)
-        ax.scatter(top['Config'], top['KMeans_Silhouette_mesmo_k'], color='#333333', marker='D', s=52, label='k-Means no k do ClonalG')
-        ax.set_title(f'DS{ds_id} - Top configuracoes ClonalG (k descoberto pelo ClonalG)')
-        ax.set_xlabel('Ranking da busca')
-        ax.set_ylabel('Silhouette media')
-        ax.grid(axis='y', alpha=0.25)
-        ax.legend(title='k ClonalG')
-        plt.tight_layout()
-        plt.savefig(f'{OUTPUT_DIR}/ranking_ds{ds_id}.png', dpi=160)
-        plt.close()
-
-
-def plot_parameter_impact(search_df):
-    params = ['k_descoberto_clonalg', 'n_antibodies', 'rho', 'beta', 'replace_rate', 'selection_rate']
-    fig, axes = plt.subplots(2, 3, figsize=(16, 9))
-    axes = axes.ravel()
-
-    for ax, param in zip(axes, params):
-        grouped = search_df.groupby(param, as_index=False)['ClonalG_Media'].mean()
-        sns.lineplot(data=grouped, x=param, y='ClonalG_Media', marker='o', ax=ax, color='#2f6f73')
-        ax.set_title(f'Impacto medio: {param}')
-        ax.set_xlabel(param)
-        ax.set_ylabel('Silhouette media')
-        ax.grid(alpha=0.25)
-
-    plt.tight_layout()
-    plt.savefig(f'{OUTPUT_DIR}/impacto_parametros_grid.png', dpi=160)
-    plt.close()
-
-
-def plot_final_comparison(best_df):
+def plot_final_comparison(df):
     fig, ax = plt.subplots(figsize=(10, 5.5))
-    plot_df = best_df.melt(
+    plot_df = df.melt(
         id_vars=['DataSet'],
         value_vars=['ClonalG_Media_Validacao', 'KMeans_Silhouette_mesmo_k'],
         var_name='Algoritmo',
@@ -233,7 +152,7 @@ def plot_final_comparison(best_df):
         'KMeans_Silhouette_mesmo_k': 'k-Means no k do ClonalG',
     })
     sns.barplot(data=plot_df, x='DataSet', y='Silhouette', hue='Algoritmo', palette=['#2f6f73', '#6b6f76'], ax=ax)
-    ax.set_title('ClonalG validado vs k-Means usando k descoberto pelo ClonalG')
+    ax.set_title('ClonalG configurado vs k-Means usando k descoberto pelo ClonalG')
     ax.set_xlabel('DataSet')
     ax.set_ylabel('Silhouette')
     ax.grid(axis='y', alpha=0.25)
@@ -242,84 +161,90 @@ def plot_final_comparison(best_df):
     plt.close()
 
 
-def write_markdown_report(best_df, search_df):
+def write_markdown_report(df, config):
     lines = [
-        '# Busca de Parametros do ClonalG\n',
-        '- Fluxo: ClonalG descobre k; k-Means e executado com o k descoberto pelo ClonalG.',
-        f'- Repeticoes na busca: {SEARCH_RUNS}',
-        f'- Repeticoes na validacao das melhores configuracoes: {VALIDATION_RUNS}',
-        f'- Iteracoes por execucao ClonalG: {N_ITERATIONS}',
-        f'- Faixa de k pesquisada pelo ClonalG: {min(K_RANGE)} a {max(K_RANGE)}',
+        '# Execucao Configurada do ClonalG\n',
+        '- Fluxo: os parametros sao definidos nas constantes do script; o ClonalG descobre k; o k-Means usa esse k.',
+        f'- Parametros: N={config["n_antibodies"]}, rho={config["rho"]}, beta={config["beta"]}, '
+        f'replace_rate={config["replace_rate"]}, selection_rate={config["selection_rate"]}',
+        f'- Faixa de k: {config["k_min"]} a {config["k_max"]}',
+        f'- Repeticoes por dataset: {config["runs"]}',
+        f'- Geracoes por repeticao: {config["iterations"]}',
         '',
-        '## Melhores configuracoes validadas\n',
+        '## Resultados\n',
     ]
 
-    display_cols = [
-        'DataSet', 'k_descoberto_clonalg', 'k_descoberto_moda', 'ks_descobertos',
-        'n_antibodies', 'rho', 'beta', 'replace_rate', 'selection_rate',
-        'ClonalG_Media_Validacao', 'ClonalG_Desvio_Validacao', 'KMeans_Silhouette_mesmo_k',
+    display = df.copy()
+    for col in [
+        'ClonalG_Media_Validacao',
+        'ClonalG_Desvio_Validacao',
+        'ClonalG_Melhor_Validacao',
+        'KMeans_Silhouette_mesmo_k',
         'Delta_Validacao_vs_KMeans_mesmo_k',
+    ]:
+        display[col] = display[col].round(4)
+    lines.append(dataframe_to_markdown(display, index=False))
+    open(f'{OUTPUT_DIR}/melhores_configuracoes.md', 'w').write('\n'.join(lines))
+
+
+def save_outputs(df, config):
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    df.to_csv(f'{OUTPUT_DIR}/execucao_configurada.csv', index=False)
+    df.to_csv(f'{OUTPUT_DIR}/melhores_configuracoes.csv', index=False)
+    df.to_csv(f'{OUTPUT_DIR}/validacao_top_configs.csv', index=False)
+    df.to_csv(f'{OUTPUT_DIR}/resultados_sweep.csv', index=False)
+
+    # Nome mantido por compatibilidade com scripts e relatorios antigos.
+    df[['DataSet', 'k_descoberto_clonalg', 'KMeans_Silhouette_mesmo_k']].rename(
+        columns={'k_descoberto_clonalg': 'k', 'KMeans_Silhouette_mesmo_k': 'KMeans_Silhouette'}
+    ).to_csv(f'{OUTPUT_DIR}/kmeans_por_k.csv', index=False)
+
+    plot_final_comparison(df)
+    write_markdown_report(df, config)
+
+
+def remove_grid_artifacts():
+    old_files = [
+        'resultados_busca_clonalg.csv',
+        'impacto_parametros_grid.png',
+        'impacto_n_antibodies.png',
+        'impacto_replace_rate.png',
+        'impacto_rho.png',
     ]
-    best_display = best_df[display_cols].copy()
-    for col in ['ClonalG_Media_Validacao', 'ClonalG_Desvio_Validacao', 'KMeans_Silhouette_mesmo_k', 'Delta_Validacao_vs_KMeans_mesmo_k']:
-        best_display[col] = best_display[col].round(4)
-    lines.append(dataframe_to_markdown(best_display, index=False))
+    old_files.extend(f'ranking_ds{i}.png' for i in range(1, 6))
 
-    lines.extend(['', '## Todas as configuracoes da busca\n'])
-    search_display = search_df.copy()
-    for col in ['ClonalG_Media', 'ClonalG_Desvio', 'KMeans_Silhouette_mesmo_k', 'Delta_Media_vs_KMeans_mesmo_k']:
-        search_display[col] = search_display[col].round(4)
-    lines.append(dataframe_to_markdown(search_display, index=False))
-
-    Path = __import__('pathlib').Path
-    Path(f'{OUTPUT_DIR}/melhores_configuracoes.md').write_text('\n'.join(lines))
+    for filename in old_files:
+        path = os.path.join(OUTPUT_DIR, filename)
+        if os.path.exists(path):
+            os.remove(path)
 
 
 def main():
-    print('=' * 70, flush=True)
-    print('BUSCA DE PARAMETROS: CLONALG DESCOBRE K, K-MEANS USA ESSE K', flush=True)
-    print('=' * 70, flush=True)
+    config = dict(CONFIG)
+    validate_config(config)
+
+    print('\nExecucao configurada do ClonalG')
+    print(f'Parametros: {config}\n', flush=True)
 
     datasets = load_datasets()
     if not datasets:
         print('Nenhum dataset pre-processado encontrado. Execute preprocessamento.py primeiro.')
         return
 
-    search_tables = []
+    rows = []
     for ds_id, data in datasets.items():
-        search_tables.append(search_dataset(data, ds_id))
+        result = evaluate_dataset(data, ds_id, config)
+        rows.append(result)
+        print(
+            f"DS{ds_id}: k={result['k_descoberto_clonalg']} "
+            f"ClonalG={result['ClonalG_Media_Validacao']:.4f} +- {result['ClonalG_Desvio_Validacao']:.4f} "
+            f"| k-Means={result['KMeans_Silhouette_mesmo_k']:.4f}",
+            flush=True,
+        )
 
-    search_full = pd.concat(search_tables, ignore_index=True)
-    validation_df = validate_best_configs(datasets, search_full)
-    best_validated = (
-        validation_df.sort_values(['DataSet', 'ClonalG_Media_Validacao'], ascending=[True, False])
-        .groupby('DataSet', as_index=False)
-        .head(1)
-        .reset_index(drop=True)
-    )
-
-    search_full.to_csv(f'{OUTPUT_DIR}/resultados_busca_clonalg.csv', index=False)
-    search_full.to_csv(f'{OUTPUT_DIR}/resultados_sweep.csv', index=False)
-    validation_df.to_csv(f'{OUTPUT_DIR}/validacao_top_configs.csv', index=False)
-    best_validated.to_csv(f'{OUTPUT_DIR}/melhores_configuracoes.csv', index=False)
-
-    # Mantem um CSV de compatibilidade com o nome antigo, agora contendo o k escolhido pelo ClonalG.
-    best_validated[['DataSet', 'k_descoberto_clonalg', 'KMeans_Silhouette_mesmo_k']].rename(
-        columns={'k_descoberto_clonalg': 'k', 'KMeans_Silhouette_mesmo_k': 'KMeans_Silhouette'}
-    ).to_csv(f'{OUTPUT_DIR}/kmeans_por_k.csv', index=False)
-
-    plot_rankings(search_full)
-    plot_parameter_impact(search_full)
-    plot_final_comparison(best_validated)
-    write_markdown_report(best_validated, search_full)
-
-    print('\nMelhores configuracoes validadas:', flush=True)
-    cols = [
-        'DataSet', 'k_descoberto_clonalg', 'k_descoberto_moda', 'ks_descobertos',
-        'n_antibodies', 'rho', 'beta', 'replace_rate', 'selection_rate',
-        'ClonalG_Media_Validacao', 'KMeans_Silhouette_mesmo_k',
-    ]
-    print(best_validated[cols].to_string(index=False))
+    df = pd.DataFrame(rows)
+    remove_grid_artifacts()
+    save_outputs(df, config)
     print(f'\nResultados salvos em {OUTPUT_DIR}/')
 
 
