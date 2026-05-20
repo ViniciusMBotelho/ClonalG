@@ -7,6 +7,27 @@ from sklearn.decomposition import PCA
 from sklearn.impute import SimpleImputer
 import os
 
+
+def carregar_dataset_limpo(file_path):
+    """Carrega o CSV removendo colunas de índice exportadas por pandas."""
+    df = pd.read_csv(file_path)
+
+    first_col = df.columns[0]
+    first_values = pd.to_numeric(df.iloc[:, 0], errors='coerce')
+    looks_like_index = (
+        str(first_col).startswith('Unnamed')
+        or (
+            first_values.notna().all()
+            and np.array_equal(first_values.astype(int).to_numpy(), np.arange(len(df)))
+        )
+    )
+
+    if looks_like_index:
+        df = df.iloc[:, 1:]
+
+    return df.apply(pd.to_numeric, errors='coerce')
+
+
 def main():
     # Garantir que o diretório de resultados exista
     output_dir = 'resultados/etapa1'
@@ -19,9 +40,7 @@ def main():
         print(f"Processando {file_path}...")
         
         try:
-            df = pd.read_csv(file_path)
-            if all(df.iloc[0].apply(lambda x: isinstance(x, (int, float)))):
-                 df = pd.read_csv(file_path, header=None)
+            df = carregar_dataset_limpo(file_path)
 
             shape = df.shape
             missing = df.isnull().sum().sum()

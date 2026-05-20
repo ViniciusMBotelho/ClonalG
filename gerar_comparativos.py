@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.decomposition import PCA
 from sklearn.impute import SimpleImputer
+from preprocessamento import carregar_dataset_limpo
 import os
 
 def main():
@@ -12,10 +13,8 @@ def main():
     for i in range(1, 6):
         file_path = f'datasets/DataSet{i}.csv'
         try:
-            # Carrega dados originais
-            df = pd.read_csv(file_path)
-            if all(df.iloc[0].apply(lambda x: isinstance(x, (int, float)))):
-                 df = pd.read_csv(file_path, header=None)
+            # Carrega dados originais sem colunas de indice exportadas
+            df = carregar_dataset_limpo(file_path)
             
             # Apenas limpa os NaNs (necessário para o plot)
             imputer = SimpleImputer(strategy='mean')

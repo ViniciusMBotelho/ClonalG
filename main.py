@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from preprocessamento import main as run_preprocess
 from clonalg_core import ClonalG
+from sklearn.decomposition import PCA
 import os
 import numpy as np
 
@@ -22,7 +23,7 @@ def main():
     print(f"\n--- 2/3 Iniciando ClonalG no {dataset_path} ---")
     
     # Parâmetros: N=10 anticorpos, k=3 clusters, rho=2.0, beta=10
-    sia = ClonalG(n_antibodies=10, k_range=(3, 3), rho=2.0, beta=10)
+    sia = ClonalG(n_antibodies=10, k_range=(3, 3), rho=2.0, beta=10, selection_rate=0.85)
     
     # Treinamento por 50 gerações
     best_centroids, history = sia.fit(data, n_iterations=50)
@@ -42,8 +43,15 @@ def main():
     # Gráfico de Clusters Final
     plt.subplot(1, 2, 2)
     labels = sia.predict(data, best_centroids)
-    sns.scatterplot(x=data[:, 0], y=data[:, 1], hue=labels, palette='viridis')
-    plt.scatter(best_centroids[:, 0], best_centroids[:, 1], s=200, c='red', marker='X', label='Centroides')
+    if data.shape[1] > 2:
+        pca = PCA(n_components=2, random_state=42)
+        data_plot = pca.fit_transform(data)
+        centroids_plot = pca.transform(best_centroids)
+    else:
+        data_plot = data[:, :2]
+        centroids_plot = best_centroids[:, :2]
+    sns.scatterplot(x=data_plot[:, 0], y=data_plot[:, 1], hue=labels, palette='tab10')
+    plt.scatter(centroids_plot[:, 0], centroids_plot[:, 1], s=200, c='red', marker='X', label='Anticorpos')
     plt.title('Clusters Identificados pelo ClonalG')
     plt.legend()
     
