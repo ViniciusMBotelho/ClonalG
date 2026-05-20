@@ -36,7 +36,7 @@ def load_best_configs():
     for ds_id, k in DEFAULT_K_VALUES.items():
         configs[ds_id] = {
             'DataSet': ds_id,
-            'k': k,
+            'k_descoberto_clonalg': k,
             'n_antibodies': 15,
             'rho': 2.0,
             'beta': 10,
@@ -65,11 +65,13 @@ def run_clonalg(data, cfg, ds_id):
     histories = []
     best = {'score': -2.0, 'centroids': None, 'labels': None, 'history': None}
 
+    k = int(cfg.get('k_descoberto_clonalg', cfg.get('k')))
+
     for run in range(N_RUNS):
         np.random.seed(RANDOM_SEED + ds_id * 100 + run)
         sia = ClonalG(
             n_antibodies=int(cfg['n_antibodies']),
-            k_range=(int(cfg['k']), int(cfg['k'])),
+            k_range=(k, k),
             rho=float(cfg['rho']),
             beta=float(cfg['beta']),
             replace_rate=float(cfg['replace_rate']),
@@ -145,7 +147,7 @@ def main():
 
         data = pd.read_csv(path, header=None).values
         cfg = configs[ds_id]
-        k = int(cfg['k'])
+        k = int(cfg.get('k_descoberto_clonalg', cfg.get('k')))
 
         clonalg_result = run_clonalg(data, cfg, ds_id)
 
@@ -155,7 +157,7 @@ def main():
 
         rows.append({
             'DataSet': ds_id,
-            'k': k,
+            'k_descoberto_clonalg': k,
             'n_antibodies': int(cfg['n_antibodies']),
             'rho': float(cfg['rho']),
             'beta': float(cfg['beta']),
