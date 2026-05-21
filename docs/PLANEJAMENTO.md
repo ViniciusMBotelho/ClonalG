@@ -39,6 +39,7 @@ O algoritmo será estruturado em uma classe `ClonalG_Clustering` com os seguinte
 4.  **Variação (Hipermutação Somática):**
     *   Aplicar mutação nos clones.
     *   Regra: Mutação inversamente proporcional à afinidade (clones de anticorpos excelentes sofrem pouca mutação; clones de anticorpos piores sofrem mais mutação para explorar o espaço de busca).
+    *   Permitir mutação estrutural de \(k\), adicionando ou removendo centroides dentro dos limites configurados.
 5.  **Seleção e Substituição:**
     *   Calcular a afinidade da população clonada e mutada.
     *   Selecionar os melhores indivíduos entre a população original e os clones para formar a memória explícita (Abm).
@@ -60,8 +61,8 @@ O algoritmo será estruturado em uma classe `ClonalG_Clustering` com os seguinte
 ## Etapa 4: Descoberta do Número de Clusters ($k$) [CONCLUÍDO]
 **Objetivo:** Encontrar o melhor \(k\) com o ClonalG.
 
-*   **Abordagem:** Definir uma lista de candidatos de \(k\) no script de execução e rodar o ClonalG separadamente para cada candidato.
-*   **Análise:** Selecionar o \(k\) com melhor Silhouette do ClonalG e repassar esse mesmo \(k\) ao k-Means.
+*   **Abordagem:** Definir limites/candidatos de \(k\) no script de execução e permitir que a mutação estrutural adicione ou remova centroides.
+*   **Análise:** Selecionar o melhor \(k\) final encontrado pelo ClonalG e repassar esse mesmo \(k\) ao k-Means.
 
 ---
 

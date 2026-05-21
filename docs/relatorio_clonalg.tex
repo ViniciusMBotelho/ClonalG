@@ -186,10 +186,10 @@ Foi implementado um algoritmo de busca em grade no script \texttt{experimentos\_
     \item fator de clonagem \(\beta\): \(10\);
     \item taxa de substituicao: \(0.05\) e \(0.20\);
     \item taxa de selecao: \(0.50\) e \(0.85\);
-    \item candidatos de \(k\), avaliados externamente. Cada execucao do nucleo usa um unico \(k\) fixo, e o melhor \(k\) do ClonalG e repassado ao k-Means.
+    \item candidatos/limites de \(k\), usados pela mutacao estrutural para adicionar ou remover centroides. O melhor \(k\) final do ClonalG e repassado ao k-Means.
 \end{itemize}
 
-A busca inicial executou uma repeticao por configuracao para reduzir tempo de execucao. As melhores configuracoes foram reavaliadas com tres repeticoes. Para descobrir \(k\), o ClonalG foi executado separadamente para cada candidato; em cada execucao individual, \(k\) permaneceu fixo. O candidato com melhor Silhouette medio do ClonalG foi usado tambem no k-Means. Esse desenho experimental e suficiente para comparar tendencias, mas pode ser expandido aumentando as constantes de repeticoes, geracoes e a grade de parametros.
+A busca inicial executou uma repeticao por configuracao para reduzir tempo de execucao. As melhores configuracoes foram reavaliadas com tres repeticoes. Para descobrir \(k\), o ClonalG foi inicializado com candidatos configurados e a mutacao estrutural pode adicionar ou remover centroides dentro dos limites definidos. O melhor \(k\) final obtido pelo ClonalG foi usado tambem no k-Means. Esse desenho experimental e suficiente para comparar tendencias, mas pode ser expandido aumentando as constantes de repeticoes, geracoes e a grade de parametros.
 
 \section{Resultados}
 
@@ -264,7 +264,7 @@ DataSet & k encontrado & Melhor Silhouette \\
 \end{tabular}
 \end{table}
 
-Os valores de \(k\) foram definidos pelo melhor desempenho do ClonalG entre os candidatos; em seguida, esses valores foram repassados ao k-Means para uma comparacao com a mesma quantidade de clusters. Assim, a hipermutacao somatica atua apenas sobre as posicoes dos centroides dentro de cada execucao.
+Os valores de \(k\) foram definidos pelo melhor desempenho final do ClonalG apos mutacao estrutural; em seguida, esses valores foram repassados ao k-Means para uma comparacao com a mesma quantidade de clusters.
 
 \subsection{Evolucao do Silhouette}
 Os graficos de evolucao mostram a melhora progressiva do indice Silhouette durante as geracoes. A selecao e a clonagem continuam usando afinidade Euclidiana interna; o Silhouette e calculado sobre o melhor anticorpo de cada geracao apenas para registro experimental e atendimento aos entregaveis.

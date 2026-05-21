@@ -10,6 +10,8 @@ class ClonalG:
         self,
         n_antibodies=10,
         k=3,
+        k_min=2,
+        k_max=6,
         rho=2.0,
         beta=10,
         replace_rate=0.1,
@@ -19,7 +21,9 @@ class ClonalG:
     ):
         """
         :param n_antibodies: N - Quantidade de anticorpos na população.
-        :param k: Número fixo de clusters usado nesta execução.
+        :param k: Número inicial de clusters usado nesta execução.
+        :param k_min: Menor número de clusters permitido pela mutação estrutural.
+        :param k_max: Maior número de clusters permitido pela mutação estrutural.
         :param rho: Parâmetro de decaimento da mutação exponencial.
         :param beta: Fator de controle da clonagem.
         :param replace_rate: Proporção de anticorpos Abr substituídos por novos.
@@ -29,8 +33,14 @@ class ClonalG:
         """
         self.n_antibodies = n_antibodies
         self.k = int(k)
-        if self.k < 2:
-            raise ValueError('k deve ser pelo menos 2 para permitir avaliacao por Silhouette.')
+        self.k_min = int(k_min)
+        self.k_max = int(k_max)
+        if self.k_min < 2:
+            raise ValueError('k_min deve ser pelo menos 2 para permitir avaliacao por Silhouette.')
+        if self.k_max < self.k_min:
+            raise ValueError('k_max deve ser maior ou igual a k_min.')
+        if not self.k_min <= self.k <= self.k_max:
+            raise ValueError('k inicial deve estar entre k_min e k_max.')
         self.rho = rho
         self.beta = beta
         self.replace_rate = replace_rate
@@ -50,7 +60,7 @@ class ClonalG:
         return min(self.n_antibodies - 1, max(1, size))
 
     def _initialize_population(self, data):
-        """Inicializa Abm e Abr com anticorpos de k fixo."""
+        """Inicializa Abm e Abr com anticorpos de k inicial."""
         n_samples = data.shape[0]
         antibodies = []
         for _ in range(self.n_antibodies):
@@ -112,10 +122,11 @@ class ClonalG:
         """
         Proliferação e Hipermutação Somática.
 
-        O k é fixo durante toda a execução; a mutação altera apenas as posições
-        dos centroides.
+        A mutação altera as posições dos centroides e pode adicionar/remover
+        centroides dentro dos limites k_min e k_max.
         """
         new_clones = []
+        n_samples = data.shape[0]
         
         for i, antibody in enumerate(population):
             num_clones = int(self.beta * affinities_norm[i]) + 1
@@ -127,6 +138,16 @@ class ClonalG:
                 # 1. Mutação nos valores (posição dos centroides)
                 noise = np.random.normal(0, alpha, size=clone.shape)
                 clone += noise
+
+                if np.random.rand() < alpha:
+                    op = np.random.choice(['add', 'remove', 'keep'])
+                    if op == 'add' and len(clone) < self.k_max:
+                        new_idx = np.random.choice(n_samples)
+                        clone = np.vstack([clone, data[new_idx]])
+                    elif op == 'remove' and len(clone) > self.k_min:
+                        remove_idx = np.random.choice(len(clone))
+                        clone = np.delete(clone, remove_idx, axis=0)
+
                 new_clones.append(clone)
         return new_clones
 
@@ -154,7 +175,8 @@ class ClonalG:
             if n_replace > 0:
                 n_samples = data.shape[0]
                 for i in range(1, n_replace + 1):
-                    indices = np.random.choice(n_samples, self.k, replace=False)
+                    k = np.random.randint(self.k_min, self.k_max + 1)
+                    indices = np.random.choice(n_samples, k, replace=False)
                     self.population[-i] = data[indices].copy()
                 self.population_affinities, _ = self._calculate_affinity(data, self.population)
                 self._select_memory_and_population(
@@ -169,7 +191,7 @@ class ClonalG:
             if verbose and (it % 10 == 0 or it == n_iterations - 1):
                 print(
                     f"Geração {it}: Silhouette = {best_silhouette:.4f} "
-                    f"| afinidade euclidiana = {best_affinity:.4f} (k={self.k})"
+                    f"| afinidade euclidiana = {best_affinity:.4f} (k={len(self.memory[0])})"
                 )
                 
         return self.memory[0], history

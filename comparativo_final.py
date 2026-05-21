@@ -38,6 +38,8 @@ def default_configs():
             'beta': 10,
             'replace_rate': 0.10,
             'selection_rate': 1.0,
+            'k_min': min(DEFAULT_K_VALUES.values()),
+            'k_max': max(DEFAULT_K_VALUES.values()),
         }
     return configs
 
@@ -54,6 +56,16 @@ def load_best_configs():
 
 def get_config_k(cfg):
     return int(cfg['k'])
+
+
+def get_k_bounds(cfg):
+    if 'k_candidates' in cfg and isinstance(cfg['k_candidates'], str):
+        candidates = [int(value) for value in cfg['k_candidates'].split(',') if value]
+        return min(candidates), max(candidates)
+    if 'k_min' in cfg and 'k_max' in cfg and not pd.isna(cfg['k_min']) and not pd.isna(cfg['k_max']):
+        return int(cfg['k_min']), int(cfg['k_max'])
+    k = get_config_k(cfg)
+    return k, k
 
 
 def project_2d(data, *centers):
@@ -76,12 +88,15 @@ def run_clonalg(data, cfg, ds_id):
     best = {'score': -2.0, 'centroids': None, 'labels': None, 'history': None}
 
     k = get_config_k(cfg)
+    k_min, k_max = get_k_bounds(cfg)
 
     for run in range(N_RUNS):
         np.random.seed(RANDOM_SEED + ds_id * 100 + run)
         sia = ClonalG(
             n_antibodies=int(cfg['n_antibodies']),
             k=k,
+            k_min=k_min,
+            k_max=k_max,
             rho=float(cfg['rho']),
             beta=float(cfg['beta']),
             replace_rate=float(cfg['replace_rate']),

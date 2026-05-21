@@ -3,8 +3,8 @@ Execucao configurada do ClonalG e comparacao com k-Means.
 
 Este script nao faz mais busca em grade. A cada execucao, os parametros do
 ClonalG sao definidos nas constantes no topo deste arquivo. O k e descoberto
-por busca externa: cada execucao do nucleo recebe um unico k fixo, e o melhor
-k do ClonalG e repassado ao k-Means.
+por mutacao estrutural dentro dos limites definidos em K_CANDIDATES, e o melhor
+k final do ClonalG e repassado ao k-Means.
 """
 
 import os
@@ -29,7 +29,7 @@ RANDOM_SEED = 42
 
 # Edite estes valores para controlar a proxima execucao.
 N_ANTIBODIES = 50
-RHO = 2.0
+RHO = 3.5
 BETA = 10.0
 REPLACE_RATE = 0.10
 SELECTION_RATE = 0.85
@@ -68,6 +68,10 @@ def validate_config(config):
         raise ValueError('iterations deve ser maior que zero.')
 
 
+def k_bounds(config):
+    return min(config['k_candidates']), max(config['k_candidates'])
+
+
 def load_datasets():
     datasets = {}
     for i in range(1, 6):
@@ -86,9 +90,12 @@ def safe_silhouette(data, labels):
 
 def run_clonalg_once(data, config, ds_id, run, k):
     np.random.seed(config['seed'] + ds_id * 1000 + k * 100 + run)
+    k_min, k_max = k_bounds(config)
     sia = ClonalG(
         n_antibodies=config['n_antibodies'],
         k=k,
+        k_min=k_min,
+        k_max=k_max,
         rho=config['rho'],
         beta=config['beta'],
         replace_rate=config['replace_rate'],
@@ -100,6 +107,7 @@ def run_clonalg_once(data, config, ds_id, run, k):
     return {
         'score': score,
         'k': len(best_ab),
+        'k_inicial': k,
         'history': history,
     }
 
@@ -109,8 +117,10 @@ def evaluate_dataset(data, ds_id, config):
     for k in config['k_candidates']:
         runs = [run_clonalg_once(data, config, ds_id, run, k) for run in range(config['runs'])]
         scores = [run['score'] for run in runs]
+        best_run = max(runs, key=lambda run: run['score'])
         candidates.append({
-            'k': k,
+            'k_inicial': k,
+            'k': best_run['k'],
             'runs': runs,
             'mean': float(np.mean(scores)),
             'best': float(np.max(scores)),
@@ -129,13 +139,14 @@ def evaluate_dataset(data, ds_id, config):
     iteration_records = []
     run_records = []
     for candidate in candidates:
-        candidate_k = candidate['k']
-        is_best_k = candidate_k == k
+        candidate_k_inicial = candidate['k_inicial']
+        is_best_k = candidate is best_candidate
         for run_idx, run_result in enumerate(candidate['runs'], start=1):
             run_records.append({
                 'DataSet': ds_id,
                 'Run': run_idx,
-                'k': candidate_k,
+                'k_inicial': candidate_k_inicial,
+                'k_final': run_result['k'],
                 'Melhor_k_ClonalG': is_best_k,
                 'n_antibodies': config['n_antibodies'],
                 'rho': config['rho'],
@@ -149,7 +160,8 @@ def evaluate_dataset(data, ds_id, config):
                     'DataSet': ds_id,
                     'Run': run_idx,
                     'Iteracao': iteration,
-                    'k': candidate_k,
+                    'k_inicial': candidate_k_inicial,
+                    'k_final': run_result['k'],
                     'Melhor_k_ClonalG': is_best_k,
                     'n_antibodies': config['n_antibodies'],
                     'rho': config['rho'],
@@ -162,8 +174,9 @@ def evaluate_dataset(data, ds_id, config):
     result = {
         'DataSet': ds_id,
         'k': k,
-        'k_candidates': ','.join(str(candidate['k']) for candidate in candidates),
-        'k_scores_medios_clonalg': ';'.join(f"{candidate['k']}:{candidate['mean']:.4f}" for candidate in candidates),
+        'k_inicial_melhor': best_candidate['k_inicial'],
+        'k_candidates': ','.join(str(candidate['k_inicial']) for candidate in candidates),
+        'k_scores_medios_clonalg': ';'.join(f"{candidate['k_inicial']}->{candidate['k']}:{candidate['mean']:.4f}" for candidate in candidates),
         'n_antibodies': config['n_antibodies'],
         'rho': config['rho'],
         'beta': config['beta'],
@@ -205,12 +218,12 @@ def plot_final_comparison(df):
 def write_markdown_report(df, config):
     lines = [
         '# Execucao Configurada do ClonalG\n',
-        '- Fluxo: o ClonalG testa os valores de k configurados externamente; cada execucao do nucleo usa k fixo; o melhor k do ClonalG e repassado ao k-Means.',
+        '- Fluxo: o ClonalG inicia em cada k candidato e usa mutacao estrutural para adicionar/remover centroides dentro dos limites configurados; o melhor k final do ClonalG e repassado ao k-Means.',
         '- Afinidade interna do ClonalG: distancia Euclidiana media ao centroide mais proximo, com sinal invertido.',
         '- Silhouette: usado para registrar a evolucao, escolher o melhor k do ClonalG e comparar com k-Means.',
         f'- Parametros: N={config["n_antibodies"]}, rho={config["rho"]}, beta={config["beta"]}, '
         f'replace_rate={config["replace_rate"]}, selection_rate={config["selection_rate"]}',
-        f'- Candidatos de k: {",".join(str(k) for k in config["k_candidates"])}',
+        f'- Candidatos/limites de k: {",".join(str(k) for k in config["k_candidates"])}',
         f'- Repeticoes por dataset: {config["runs"]}',
         f'- Geracoes por repeticao: {config["iterations"]}',
         '',
@@ -234,6 +247,8 @@ def write_iteration_output(iteration_df, run_df, config):
         '# Output por Iteracao do ClonalG\n',
         '## Parametros\n',
         f'- k_candidates: {",".join(str(k) for k in config["k_candidates"])}',
+        f'- k_min: {min(config["k_candidates"])}',
+        f'- k_max: {max(config["k_candidates"])}',
         f'- n_antibodies: {config["n_antibodies"]}',
         f'- rho: {config["rho"]}',
         f'- beta: {config["beta"]}',
