@@ -9,7 +9,6 @@ import os
 
 
 def carregar_dataset_limpo(file_path):
-    """Carrega o CSV removendo colunas de índice exportadas por pandas."""
     df = pd.read_csv(file_path)
 
     first_col = df.columns[0]
@@ -29,7 +28,6 @@ def carregar_dataset_limpo(file_path):
 
 
 def main():
-    # Garantir que o diretório de resultados exista
     output_dir = 'resultados/etapa1'
     os.makedirs(output_dir, exist_ok=True)
 
@@ -49,19 +47,15 @@ def main():
             relatorio_texto += f"- **Dimensões:** {shape[0]} amostras, {shape[1]} features\n"
             relatorio_texto += f"- **Valores ausentes:** {missing}\n\n"
             
-            # Tratamento de valores ausentes
             imputer = SimpleImputer(strategy='mean')
             df_imputed = imputer.fit_transform(df)
             
-            # Normalização
             scaler = StandardScaler()
             df_scaled = scaler.fit_transform(df_imputed)
             
-            # Salvando os dados padronizados
             df_scaled_pd = pd.DataFrame(df_scaled)
             df_scaled_pd.to_csv(f'datasets/DataSet{i}_scaled.csv', index=False, header=False)
             
-            # Visualização inicial
             plt.figure(figsize=(8, 6))
             if shape[1] > 2:
                 pca = PCA(n_components=2)

@@ -13,16 +13,13 @@ def main():
     for i in range(1, 6):
         file_path = f'datasets/DataSet{i}.csv'
         try:
-            # Carrega dados originais sem colunas de indice exportadas
             df = carregar_dataset_limpo(file_path)
             
-            # Apenas limpa os NaNs (necessário para o plot)
             imputer = SimpleImputer(strategy='mean')
             data_raw = imputer.fit_transform(df)
             
             plt.figure(figsize=(12, 5))
             
-            # 1. Plot SEM Normalização
             plt.subplot(1, 2, 1)
             if data_raw.shape[1] > 2:
                 pca = PCA(n_components=2)
@@ -35,7 +32,6 @@ def main():
             sns.scatterplot(x=viz_data[:, 0], y=viz_data[:, 1], color='red', alpha=0.6)
             plt.grid(True, alpha=0.3)
             
-            # 2. Carrega e Plot COM Normalização (que já salvamos antes)
             plt.subplot(1, 2, 2)
             data_scaled = pd.read_csv(f'datasets/DataSet{i}_scaled.csv', header=None).values
             if data_scaled.shape[1] > 2:

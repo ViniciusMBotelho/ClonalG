@@ -1,12 +1,3 @@
-"""
-Execucao configurada do ClonalG e comparacao com k-Means.
-
-Este script nao faz mais busca em grade. A cada execucao, os parametros do
-ClonalG sao definidos nas constantes no topo deste arquivo. O k e descoberto
-por mutacao estrutural dentro dos limites definidos em K_CANDIDATES, e o melhor
-k final do ClonalG e repassado ao k-Means.
-"""
-
 import os
 import warnings
 
@@ -27,7 +18,6 @@ warnings.filterwarnings('ignore')
 OUTPUT_DIR = 'resultados/etapa3_parametros'
 RANDOM_SEED = 42
 
-# Edite estes valores para controlar a proxima execucao.
 N_ANTIBODIES = 60
 RHO = 3.5
 BETA = 30.0
@@ -284,7 +274,6 @@ def save_outputs(df, config, iteration_df, run_df):
     df.to_csv(f'{OUTPUT_DIR}/validacao_top_configs.csv', index=False)
     df.to_csv(f'{OUTPUT_DIR}/resultados_sweep.csv', index=False)
 
-    # Nome mantido por compatibilidade com scripts e relatorios antigos.
     df[['DataSet', 'k', 'KMeans_Silhouette_mesmo_k']].rename(
         columns={'KMeans_Silhouette_mesmo_k': 'KMeans_Silhouette'}
     ).to_csv(f'{OUTPUT_DIR}/kmeans_por_k.csv', index=False)

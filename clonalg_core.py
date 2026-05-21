@@ -3,9 +3,6 @@ from sklearn.metrics import silhouette_score
 from scipy.spatial.distance import cdist
 
 class ClonalG:
-    """
-    Motor do Algoritmo de Seleção Clonal (ClonalG) aplicado ao Agrupamento de Dados.
-    """
     def __init__(
         self,
         n_antibodies=10,
@@ -19,18 +16,6 @@ class ClonalG:
         memory_rate=0.25,
         silhouette_sample_size=None,
     ):
-        """
-        :param n_antibodies: N - Quantidade de anticorpos na população.
-        :param k: Número inicial de clusters usado nesta execução.
-        :param k_min: Menor número de clusters permitido pela mutação estrutural.
-        :param k_max: Maior número de clusters permitido pela mutação estrutural.
-        :param rho: Parâmetro de decaimento da probabilidade de mutação estrutural.
-        :param beta: Fator de controle da clonagem.
-        :param replace_rate: Proporção de anticorpos Abr substituídos por novos.
-        :param selection_rate: Proporção da memória Abm usada para clonagem.
-        :param memory_rate: Proporção da população total preservada explicitamente como memória Abm.
-        :param silhouette_sample_size: Tamanho da amostra usada na afinidade Silhouette; None usa todos os dados.
-        """
         self.n_antibodies = n_antibodies
         self.k = int(k)
         self.k_min = int(k_min)
@@ -60,7 +45,6 @@ class ClonalG:
         return min(self.n_antibodies - 1, max(1, size))
 
     def _initialize_population(self, data):
-        """Inicializa Abm e Abr com anticorpos de k inicial."""
         n_samples = data.shape[0]
         antibodies = []
         for _ in range(self.n_antibodies):
@@ -70,9 +54,6 @@ class ClonalG:
         self._select_memory_and_population(antibodies, affinities)
 
     def _calculate_affinity(self, data, population):
-        """
-        Calcula a afinidade interna pelo indice Silhouette.
-        """
         raw_scores = [self._calculate_silhouette(data, antibody) for antibody in population]
         raw_scores = np.array(raw_scores)
         af_norm = self._normalize_affinities(raw_scores)
@@ -110,12 +91,6 @@ class ClonalG:
         self.affinities = ordered_affinities[:self.n_antibodies]
 
     def _clone_and_mutate(self, population, affinities_norm, data):
-        """
-        Proliferação e Hipermutação Somática.
-
-        A mutação estrutural pode adicionar/remover centroides dentro dos
-        limites k_min e k_max. Nao ha ruido gaussiano nos centroides.
-        """
         new_clones = []
         n_samples = data.shape[0]
         
@@ -139,7 +114,6 @@ class ClonalG:
         return new_clones
 
     def fit(self, data, n_iterations=50, verbose=True):
-        """Executa o ciclo de treinamento do SIA."""
         data = np.array(data)
         self._initialize_population(data)
         history = []
@@ -157,7 +131,6 @@ class ClonalG:
             combined_aff = np.concatenate((self.memory_affinities, self.population_affinities, clones_affinities))
             self._select_memory_and_population(combined_pop, combined_aff)
             
-            # Reposição de Abr (diversidade), sem sobrescrever Abm diretamente.
             n_replace = int(len(self.population) * self.replace_rate)
             if n_replace > 0:
                 n_samples = data.shape[0]
