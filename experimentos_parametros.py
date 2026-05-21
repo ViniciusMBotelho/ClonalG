@@ -28,14 +28,15 @@ OUTPUT_DIR = 'resultados/etapa3_parametros'
 RANDOM_SEED = 42
 
 # Edite estes valores para controlar a proxima execucao.
-N_ANTIBODIES = 50
+N_ANTIBODIES = 60
 RHO = 3.5
-BETA = 10.0
-REPLACE_RATE = 0.10
-SELECTION_RATE = 0.85
+BETA = 30.0
+REPLACE_RATE = 0.40
+SELECTION_RATE = 0.60
 K_CANDIDATES = [2, 3, 4, 5, 6]
 RUNS = 3
 ITERATIONS = 50
+SILHOUETTE_SAMPLE_SIZE = 300
 
 
 CONFIG = {
@@ -48,6 +49,7 @@ CONFIG = {
     'runs': RUNS,
     'iterations': ITERATIONS,
     'seed': RANDOM_SEED,
+    'silhouette_sample_size': SILHOUETTE_SAMPLE_SIZE,
 }
 
 
@@ -100,6 +102,7 @@ def run_clonalg_once(data, config, ds_id, run, k):
         beta=config['beta'],
         replace_rate=config['replace_rate'],
         selection_rate=config['selection_rate'],
+        silhouette_sample_size=config['silhouette_sample_size'],
     )
     best_ab, history = sia.fit(data, n_iterations=config['iterations'], verbose=False)
     labels = sia.predict(data, best_ab)
@@ -219,8 +222,8 @@ def write_markdown_report(df, config):
     lines = [
         '# Execucao Configurada do ClonalG\n',
         '- Fluxo: o ClonalG inicia em cada k candidato e usa mutacao estrutural para adicionar/remover centroides dentro dos limites configurados; o melhor k final do ClonalG e repassado ao k-Means.',
-        '- Afinidade interna do ClonalG: distancia Euclidiana media ao centroide mais proximo, com sinal invertido.',
-        '- Silhouette: usado para registrar a evolucao, escolher o melhor k do ClonalG e comparar com k-Means.',
+        '- Afinidade interna do ClonalG: indice Silhouette.',
+        '- Mutacao: estrutural, adicionando/removendo centroides dentro dos limites configurados; sem ruido gaussiano.',
         f'- Parametros: N={config["n_antibodies"]}, rho={config["rho"]}, beta={config["beta"]}, '
         f'replace_rate={config["replace_rate"]}, selection_rate={config["selection_rate"]}',
         f'- Candidatos/limites de k: {",".join(str(k) for k in config["k_candidates"])}',

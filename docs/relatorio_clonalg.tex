@@ -37,7 +37,7 @@ Este relatorio apresenta a implementacao e avaliacao do algoritmo de selecao clo
 \section{Introducao}
 O agrupamento de dados e uma tarefa de aprendizado nao supervisionado cujo objetivo e particionar observacoes em grupos coerentes, de forma que elementos pertencentes ao mesmo grupo sejam mais semelhantes entre si do que em relacao aos demais grupos. Essa tarefa e importante em problemas de reconhecimento de padroes, mineracao de dados, segmentacao e analise exploratoria.
 
-Neste trabalho foi implementado o algoritmo ClonalG, inspirado no principio de selecao clonal do sistema imunologico artificial. A ideia central e manter uma populacao de anticorpos candidatos, avaliar sua afinidade com o problema, proliferar os melhores candidatos, aplicar hipermutacao somatica e preservar uma memoria de solucoes de maior qualidade. No contexto de agrupamento, cada anticorpo representa um conjunto de centroides. A afinidade interna e guiada por distancia Euclidiana, enquanto o indice Silhouette e reservado para avaliacao final e comparacao externa.
+Neste trabalho foi implementado o algoritmo ClonalG, inspirado no principio de selecao clonal do sistema imunologico artificial. A ideia central e manter uma populacao de anticorpos candidatos, avaliar sua afinidade com o problema, proliferar os melhores candidatos, aplicar mutacao estrutural e preservar uma memoria de solucoes de maior qualidade. No contexto de agrupamento, cada anticorpo representa um conjunto de centroides. A afinidade interna e guiada pelo indice Silhouette.
 
 O algoritmo ClonalG foi comparado diretamente ao k-Means da biblioteca Scikit-Learn. O k-Means e uma referencia classica para particionamento baseado em centroides, mas depende fortemente da escolha de \(k\), da inicializacao e da geometria dos dados. Ja o ClonalG permite explorar o espaco de solucoes por mutacao e substituicao populacional, oferecendo uma alternativa estocastica para escapar de configuracoes locais inadequadas.
 
@@ -126,13 +126,7 @@ A = \{c_1, c_2, \ldots, c_k\}, \quad c_j \in \mathbb{R}^d
 em que \(k\) e o numero de grupos e \(d\) e a dimensionalidade dos dados. Para atribuir cada amostra a um grupo, calcula-se a distancia Euclidiana entre a amostra e todos os centroides do anticorpo, escolhendo o centroide mais proximo.
 
 \subsection{Funcao de afinidade}
-A afinidade interna do ClonalG foi medida pela distancia Euclidiana media das amostras ao centroide mais proximo do anticorpo. Como o algoritmo seleciona valores maiores de afinidade, a medida usada internamente foi:
-
-\[
-af(A) = -\frac{1}{n}\sum_{i=1}^{n}\min_{c_j \in A} d(x_i, c_j)
-\]
-
-Assim, anticorpos que deixam as amostras mais proximas de seus centroides recebem valores menos negativos e sao preferidos na selecao e clonagem. O indice Silhouette nao participa da afinidade interna; ele e usado para registrar a evolucao da qualidade ao longo das geracoes, para avaliacao final das particoes e para comparacao com k-Means. Para uma amostra \(i\), o Silhouette e definido por:
+A afinidade interna do ClonalG foi medida pelo indice Silhouette, de forma simplificada. Para uma amostra \(i\), o Silhouette e definido por:
 
 \[
 s(i) = \frac{b(i) - a(i)}{\max(a(i), b(i))}
@@ -144,7 +138,7 @@ em que \(a(i)\) e a distancia media da amostra aos elementos do proprio grupo e 
 Os quatro processos exigidos no enunciado foram implementados:
 
 \begin{itemize}
-    \item \textbf{Reconhecimento}: cada anticorpo gera rotulos por distancia Euclidiana aos centroides, e sua afinidade interna e avaliada pela distancia Euclidiana media ao centroide mais proximo.
+    \item \textbf{Reconhecimento}: cada anticorpo gera rotulos por distancia Euclidiana aos centroides, e sua afinidade interna e avaliada pelo indice Silhouette.
     \item \textbf{Proliferacao}: anticorpos de maior afinidade produzem mais clones. O numero de clones e proporcional a afinidade normalizada.
     \item \textbf{Variacao}: os clones sofrem hipermutacao somatica com intensidade inversamente proporcional a afinidade. Quanto menor a afinidade, maior a perturbacao aplicada aos centroides.
     \item \textbf{Selecao e diversidade}: os melhores anticorpos e clones sao preservados explicitamente em memoria \(Abm\). O restante da populacao \(Abr\) mantem diversidade e recebe substituicao aleatoria parcial.
@@ -162,14 +156,14 @@ Inicializar memoria Abm e repertorio Abr com N anticorpos aleatorios
 Para cada geracao t:
     Para cada anticorpo A em Abm + Abr:
         Atribuir cada amostra ao centroide mais proximo de A
-        Calcular afinidade(A) por distancia Euclidiana media negativa
+        Calcular afinidade(A) pelo indice Silhouette
     Normalizar afinidades
     Selecionar anticorpos de Abm conforme taxa de selecao
     Para cada anticorpo selecionado:
         Gerar numero de clones proporcional a afinidade
         Para cada clone:
-            Aplicar ruido gaussiano com intensidade exp(-rho * afinidade)
-    Avaliar clones por distancia Euclidiana media negativa
+            Aplicar mutacao estrutural de k sem ruido gaussiano
+    Avaliar clones pelo indice Silhouette
     Combinar Abm, Abr e clones
     Atualizar Abm com os melhores individuos
     Atualizar Abr com o restante da populacao
@@ -267,7 +261,7 @@ DataSet & k encontrado & Melhor Silhouette \\
 Os valores de \(k\) foram definidos pelo melhor desempenho final do ClonalG apos mutacao estrutural; em seguida, esses valores foram repassados ao k-Means para uma comparacao com a mesma quantidade de clusters.
 
 \subsection{Evolucao do Silhouette}
-Os graficos de evolucao mostram a melhora progressiva do indice Silhouette durante as geracoes. A selecao e a clonagem continuam usando afinidade Euclidiana interna; o Silhouette e calculado sobre o melhor anticorpo de cada geracao apenas para registro experimental e atendimento aos entregaveis.
+Os graficos de evolucao mostram a melhora progressiva do indice Silhouette durante as geracoes. A selecao, a clonagem e o registro experimental usam o Silhouette como medida de qualidade.
 
 \begin{figure}[H]
 \centering
@@ -453,7 +447,7 @@ A principal limitacao experimental e o numero reduzido de repeticoes na busca in
 Outra limitacao e o uso do Silhouette como criterio externo de validacao. Embora adequado para comparar coesao e separacao, ele pode favorecer valores menores de \(k\) em alguns conjuntos ou penalizar grupos com formatos nao convexos. Uma analise complementar poderia incluir Calinski-Harabasz, Davies-Bouldin ou avaliacao visual especializada.
 
 \section{Conclusao}
-O trabalho implementou e avaliou o ClonalG para agrupamento de dados, contemplando reconhecimento por distancia Euclidiana, proliferacao proporcional a afinidade, hipermutacao inversamente proporcional a afinidade, selecao, memoria populacional e substituicao para diversidade. Os cinco datasets foram pre-processados, normalizados e analisados visualmente.
+O trabalho implementou e avaliou o ClonalG para agrupamento de dados, contemplando reconhecimento por distancia Euclidiana, afinidade por Silhouette, proliferacao proporcional a afinidade, mutacao estrutural de \(k\), selecao, memoria populacional e substituicao para diversidade. Os cinco datasets foram pre-processados, normalizados e analisados visualmente.
 
 A comparacao com k-Means mostrou que o ClonalG e competitivo, com empate nos DataSets 1 e 5, vantagem no DataSet 4 e desempenho levemente inferior nos DataSets 2 e 3. O melhor \(k\) encontrado pelo ClonalG foi usado tambem no k-Means, usando o Silhouette para registrar a evolucao da qualidade e como criterio externo de validacao.
 

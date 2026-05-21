@@ -24,12 +24,12 @@ class ClonalG:
         :param k: Número inicial de clusters usado nesta execução.
         :param k_min: Menor número de clusters permitido pela mutação estrutural.
         :param k_max: Maior número de clusters permitido pela mutação estrutural.
-        :param rho: Parâmetro de decaimento da mutação exponencial.
+        :param rho: Parâmetro de decaimento da probabilidade de mutação estrutural.
         :param beta: Fator de controle da clonagem.
         :param replace_rate: Proporção de anticorpos Abr substituídos por novos.
         :param selection_rate: Proporção da memória Abm usada para clonagem.
         :param memory_rate: Proporção da população total preservada explicitamente como memória Abm.
-        :param silhouette_sample_size: Tamanho da amostra usada apenas no histórico de Silhouette; None usa todos os dados.
+        :param silhouette_sample_size: Tamanho da amostra usada na afinidade Silhouette; None usa todos os dados.
         """
         self.n_antibodies = n_antibodies
         self.k = int(k)
@@ -71,18 +71,9 @@ class ClonalG:
 
     def _calculate_affinity(self, data, population):
         """
-        Calcula a afinidade interna por distância Euclidiana.
-
-        Cada anticorpo representa k centroides. A afinidade é o negativo da
-        distância média das amostras ao centroide mais próximo, mantendo a
-        convenção de que valores maiores são melhores.
+        Calcula a afinidade interna pelo indice Silhouette.
         """
-        raw_scores = []
-        for antibody in population:
-            distances = cdist(data, antibody, metric='euclidean')
-            nearest_distances = np.min(distances, axis=1)
-            raw_scores.append(-float(np.mean(nearest_distances)))
-        
+        raw_scores = [self._calculate_silhouette(data, antibody) for antibody in population]
         raw_scores = np.array(raw_scores)
         af_norm = self._normalize_affinities(raw_scores)
         return raw_scores, af_norm
@@ -122,8 +113,8 @@ class ClonalG:
         """
         Proliferação e Hipermutação Somática.
 
-        A mutação altera as posições dos centroides e pode adicionar/remover
-        centroides dentro dos limites k_min e k_max.
+        A mutação estrutural pode adicionar/remover centroides dentro dos
+        limites k_min e k_max. Nao ha ruido gaussiano nos centroides.
         """
         new_clones = []
         n_samples = data.shape[0]
@@ -134,10 +125,6 @@ class ClonalG:
             
             for _ in range(num_clones):
                 clone = antibody.copy()
-                
-                # 1. Mutação nos valores (posição dos centroides)
-                noise = np.random.normal(0, alpha, size=clone.shape)
-                clone += noise
 
                 if np.random.rand() < alpha:
                     op = np.random.choice(['add', 'remove', 'keep'])
@@ -185,15 +172,11 @@ class ClonalG:
                 )
             
             best_affinity = np.max(self.affinities)
-            best_silhouette = self._calculate_silhouette(data, self.memory[0])
-            history.append(best_silhouette)
-            
+            history.append(best_affinity)
+
             if verbose and (it % 10 == 0 or it == n_iterations - 1):
-                print(
-                    f"Geração {it}: Silhouette = {best_silhouette:.4f} "
-                    f"| afinidade euclidiana = {best_affinity:.4f} (k={len(self.memory[0])})"
-                )
-                
+                print(f"Geração {it}: Afinidade euclidiana = {best_affinity:.4f} (k={len(self.memory[0])})")
+
         return self.memory[0], history
 
     def predict(self, data, best_antibody):

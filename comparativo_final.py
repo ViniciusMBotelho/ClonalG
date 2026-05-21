@@ -18,6 +18,7 @@ BEST_CONFIG_PATH = 'resultados/etapa3_parametros/melhores_configuracoes.csv'
 N_RUNS = 3
 N_ITERATIONS = 25
 RANDOM_SEED = 42
+SILHOUETTE_SAMPLE_SIZE = 300
 DEFAULT_K_VALUES = {1: 3, 2: 3, 3: 4, 4: 3, 5: 3}
 
 
@@ -101,6 +102,7 @@ def run_clonalg(data, cfg, ds_id):
             beta=float(cfg['beta']),
             replace_rate=float(cfg['replace_rate']),
             selection_rate=float(cfg.get('selection_rate', 1.0)),
+            silhouette_sample_size=SILHOUETTE_SAMPLE_SIZE,
         )
         centroids, history = sia.fit(data, n_iterations=N_ITERATIONS, verbose=False)
         labels = sia.predict(data, centroids)

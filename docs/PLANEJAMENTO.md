@@ -31,14 +31,14 @@ O algoritmo será estruturado em uma classe `ClonalG_Clustering` com os seguinte
     *   Gerar uma população inicial de anticorpos. Neste contexto de clustering, cada anticorpo pode representar o centro de um cluster (centroide) ou um conjunto de centroides.
 2.  **Reconhecimento (Cálculo de Afinidade):**
     *   Afinidade dos anticorpos com os antígenos (dados).
-    *   Métrica base: Distância Euclidiana.
-    *   Para avaliar o conjunto de centroides de um anticorpo, a **afinidade interna será guiada pela distância Euclidiana média ao centroide mais próximo** (com sinal invertido para manter maior = melhor).
+    *   Métrica base para atribuição aos centroides: Distância Euclidiana.
+    *   Para avaliar o conjunto de centroides de um anticorpo, a **afinidade interna será guiada pelo Índice Silhouette**.
 3.  **Proliferação (Clonagem):**
     *   Selecionar os melhores anticorpos (maior afinidade).
     *   Gerar clones proporcionalmente à afinidade: os melhores produzem mais cópias.
 4.  **Variação (Hipermutação Somática):**
-    *   Aplicar mutação nos clones.
-    *   Regra: Mutação inversamente proporcional à afinidade (clones de anticorpos excelentes sofrem pouca mutação; clones de anticorpos piores sofrem mais mutação para explorar o espaço de busca).
+    *   Aplicar mutação estrutural nos clones, sem ruído gaussiano nas posições dos centroides.
+    *   Regra: probabilidade de mutação inversamente proporcional à afinidade.
     *   Permitir mutação estrutural de \(k\), adicionando ou removendo centroides dentro dos limites configurados.
 5.  **Seleção e Substituição:**
     *   Calcular a afinidade da população clonada e mutada.
@@ -54,7 +54,7 @@ O algoritmo será estruturado em uma classe `ClonalG_Clustering` com os seguinte
     *   **Tamanho da população de anticorpos** ($N$).
     *   **Taxa de seleção** (percentual de melhores clones mantidos).
     *   **Fator de mutação** (intensidade da busca local / decaimento da mutação).
-*   Documentar a evolução do Índice Silhouette para diferentes configurações em cada um dos 5 datasets, mantendo a afinidade interna baseada em distância Euclidiana.
+*   Documentar a evolução do Índice Silhouette para diferentes configurações em cada um dos 5 datasets.
 
 ---
 

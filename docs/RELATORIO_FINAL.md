@@ -29,7 +29,7 @@ Ao testar candidatos de $k$ com o ClonalG, observamos:
 | DataSet 5 | 2 | 0.6656 |
 
 ## 4. Conclusão
-O ClonalG mostrou-se uma ferramenta poderosa para clustering. A implementação da **hipermutação somática** permitiu uma exploração fina do espaço de busca com afinidade interna baseada em distância Euclidiana. O melhor $k$ é escolhido pelo Silhouette obtido pelo ClonalG e então repassado ao k-Means.
+O ClonalG mostrou-se uma ferramenta poderosa para clustering. A afinidade interna passou a ser baseada no Índice Silhouette, com mutação estrutural de $k$ sem ruído gaussiano. O melhor $k$ é escolhido pelo Silhouette obtido pelo ClonalG e então repassado ao k-Means.
 
 ---
 **Artefatos Gerados:**
