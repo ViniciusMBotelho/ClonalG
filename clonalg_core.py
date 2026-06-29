@@ -1,5 +1,5 @@
 import numpy as np
-from sklearn.metrics import silhouette_score
+from sklearn.metrics import silhouette_score, davies_bouldin_score
 from scipy.spatial.distance import cdist
 
 class ClonalG:
@@ -17,13 +17,15 @@ class ClonalG:
         silhouette_sample_size=None,
         parametric_mutation_scale=0.05,
         diversity_weight=0.15,
+        affinity_metric='silhouette',
+        dynamic_decay=True,
     ):
         self.n_antibodies = n_antibodies
         self.k = int(k)
         self.k_min = int(k_min)
         self.k_max = int(k_max)
         if self.k_min < 2:
-            raise ValueError('k_min deve ser pelo menos 2 para permitir avaliacao por Silhouette.')
+            raise ValueError('k_min deve ser pelo menos 2 para permitir avaliacao por Silhouette/DB.')
         if self.k_max < self.k_min:
             raise ValueError('k_max deve ser maior ou igual a k_min.')
         if not self.k_min <= self.k <= self.k_max:
@@ -36,6 +38,8 @@ class ClonalG:
         self.silhouette_sample_size = silhouette_sample_size
         self.parametric_mutation_scale = parametric_mutation_scale
         self.diversity_weight = diversity_weight
+        self.affinity_metric = affinity_metric
+        self.dynamic_decay = dynamic_decay
         self.memory = None
         self.population = None
         self.affinities = None
@@ -58,22 +62,26 @@ class ClonalG:
         self._select_memory_and_population(antibodies, affinities)
 
     def _calculate_affinity(self, data, population):
-        raw_scores = [self._calculate_silhouette(data, antibody) for antibody in population]
+        raw_scores = [self._calculate_individual_affinity(data, antibody) for antibody in population]
         raw_scores = np.array(raw_scores)
         af_norm = self._normalize_affinities(raw_scores)
         return raw_scores, af_norm
 
-    def _calculate_silhouette(self, data, antibody):
+    def _calculate_individual_affinity(self, data, antibody):
         labels = self.predict(data, antibody)
         if len(np.unique(labels)) < 2:
-            return -1.0
-        sample_size = None
-        if self.silhouette_sample_size is not None and len(data) > self.silhouette_sample_size:
-            sample_size = self.silhouette_sample_size
+            return -1.0 if self.affinity_metric == 'silhouette' else -999.0
         try:
-            return float(silhouette_score(data, labels, sample_size=sample_size, random_state=42))
+            if self.affinity_metric == 'silhouette':
+                sample_size = None
+                if self.silhouette_sample_size is not None and len(data) > self.silhouette_sample_size:
+                    sample_size = self.silhouette_sample_size
+                return float(silhouette_score(data, labels, sample_size=sample_size, random_state=42))
+            elif self.affinity_metric == 'davies_bouldin':
+                # Davies-Bouldin: menor eh melhor. Retornamos negativo para maximizarmos.
+                return -float(davies_bouldin_score(data, labels))
         except ValueError:
-            return -1.0
+            return -1.0 if self.affinity_metric == 'silhouette' else -999.0
 
     @staticmethod
     def _normalize_affinities(raw_scores):
@@ -131,20 +139,22 @@ class ClonalG:
         self.population_affinities = ordered_affinities[n_memory:self.n_antibodies]
         self.affinities = ordered_affinities[:self.n_antibodies]
 
-    def _apply_parametric_mutation(self, clone, affinity_norm):
+    def _apply_parametric_mutation(self, clone, affinity_norm, decay=1.0):
         if self.parametric_mutation_scale <= 0:
             return clone
-        sigma = self.parametric_mutation_scale * np.exp(-self.rho * affinity_norm)
+        # O desvio padrao decai dinamicamente com o passar das iteracoes (decay)
+        sigma = self.parametric_mutation_scale * decay * np.exp(-self.rho * affinity_norm)
         noise = np.random.normal(loc=0.0, scale=sigma, size=clone.shape)
         return clone + noise
 
-    def _clone_and_mutate(self, population, affinities_norm, data):
+    def _clone_and_mutate(self, population, affinities_norm, data, decay=1.0):
         new_clones = []
         n_samples = data.shape[0]
         
         for i, antibody in enumerate(population):
             num_clones = int(self.beta * affinities_norm[i]) + 1
-            alpha = np.exp(-self.rho * affinities_norm[i])
+            # Diminui a taxa de mutacao estrutural (adicao/remocao) para focar em ajuste fino local no final
+            alpha = np.exp(-self.rho * affinities_norm[i]) * decay
             
             for _ in range(num_clones):
                 clone = antibody.copy()
@@ -158,7 +168,7 @@ class ClonalG:
                         remove_idx = np.random.choice(len(clone))
                         clone = np.delete(clone, remove_idx, axis=0)
 
-                clone = self._apply_parametric_mutation(clone, affinities_norm[i])
+                clone = self._apply_parametric_mutation(clone, affinities_norm[i], decay=decay)
                 new_clones.append(clone)
         return new_clones
 
@@ -168,12 +178,15 @@ class ClonalG:
         history = []
         
         for it in range(n_iterations):
+            # Fator de decaimento linear da geracao (1.0 -> 0.05) para explorar cedo e refinar tarde
+            decay = max(0.05, 1.0 - (it / n_iterations)) if self.dynamic_decay else 1.0
+            
             n_selected = max(1, int(np.ceil(len(self.memory) * self.selection_rate)))
             n_selected = min(n_selected, len(self.memory))
             selected_pop = self.memory[:n_selected]
             selected_af_norm = self._normalize_affinities(self.memory_affinities[:n_selected])
 
-            clones = self._clone_and_mutate(selected_pop, selected_af_norm, data)
+            clones = self._clone_and_mutate(selected_pop, selected_af_norm, data, decay=decay)
             clones_affinities, _ = self._calculate_affinity(data, clones)
             
             combined_pop = self.memory + self.population + clones
@@ -197,7 +210,8 @@ class ClonalG:
             history.append(best_affinity)
 
             if verbose and (it % 10 == 0 or it == n_iterations - 1):
-                print(f"Geração {it}: Afinidade Silhouette = {best_affinity:.4f} (k={len(self.memory[0])})")
+                metric_name = "Silhouette" if self.affinity_metric == 'silhouette' else "DB (negativo)"
+                print(f"Geração {it}: Afinidade {metric_name} = {best_affinity:.4f} (k={len(self.memory[0])})")
 
         return self.memory[0], history
 
