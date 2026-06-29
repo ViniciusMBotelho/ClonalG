@@ -23,6 +23,8 @@ RHO = 3.5
 BETA = 30.0
 REPLACE_RATE = 0.40
 SELECTION_RATE = 0.60
+PARAMETRIC_MUTATION_SCALE = 0.05
+DIVERSITY_WEIGHT = 0.15
 K_CANDIDATES = [2, 3, 4, 5, 6]
 RUNS = 3
 ITERATIONS = 50
@@ -35,6 +37,8 @@ CONFIG = {
     'beta': BETA,
     'replace_rate': REPLACE_RATE,
     'selection_rate': SELECTION_RATE,
+    'parametric_mutation_scale': PARAMETRIC_MUTATION_SCALE,
+    'diversity_weight': DIVERSITY_WEIGHT,
     'k_candidates': K_CANDIDATES,
     'runs': RUNS,
     'iterations': ITERATIONS,
@@ -54,6 +58,10 @@ def validate_config(config):
         raise ValueError('replace_rate deve estar entre 0 e 1.')
     if not 0 < config['selection_rate'] <= 1:
         raise ValueError('selection_rate deve estar no intervalo (0, 1].')
+    if config['parametric_mutation_scale'] < 0:
+        raise ValueError('parametric_mutation_scale deve ser maior ou igual a zero.')
+    if config['diversity_weight'] < 0:
+        raise ValueError('diversity_weight deve ser maior ou igual a zero.')
     if config['runs'] <= 0:
         raise ValueError('runs deve ser maior que zero.')
     if config['iterations'] <= 0:
@@ -93,6 +101,8 @@ def run_clonalg_once(data, config, ds_id, run, k):
         replace_rate=config['replace_rate'],
         selection_rate=config['selection_rate'],
         silhouette_sample_size=config['silhouette_sample_size'],
+        parametric_mutation_scale=config['parametric_mutation_scale'],
+        diversity_weight=config['diversity_weight'],
     )
     best_ab, history = sia.fit(data, n_iterations=config['iterations'], verbose=False)
     labels = sia.predict(data, best_ab)
@@ -146,6 +156,8 @@ def evaluate_dataset(data, ds_id, config):
                 'beta': config['beta'],
                 'replace_rate': config['replace_rate'],
                 'selection_rate': config['selection_rate'],
+                'parametric_mutation_scale': config['parametric_mutation_scale'],
+                'diversity_weight': config['diversity_weight'],
                 'Silhouette_Final': run_result['score'],
             })
             for iteration, silhouette in enumerate(run_result['history'], start=1):
@@ -161,6 +173,8 @@ def evaluate_dataset(data, ds_id, config):
                     'beta': config['beta'],
                     'replace_rate': config['replace_rate'],
                     'selection_rate': config['selection_rate'],
+                    'parametric_mutation_scale': config['parametric_mutation_scale'],
+                    'diversity_weight': config['diversity_weight'],
                     'Silhouette': silhouette,
                 })
 
@@ -175,6 +189,8 @@ def evaluate_dataset(data, ds_id, config):
         'beta': config['beta'],
         'replace_rate': config['replace_rate'],
         'selection_rate': config['selection_rate'],
+        'parametric_mutation_scale': config['parametric_mutation_scale'],
+        'diversity_weight': config['diversity_weight'],
         'runs': config['runs'],
         'iterations': config['iterations'],
         'ClonalG_Media_Validacao': float(np.mean(scores)),
@@ -213,9 +229,11 @@ def write_markdown_report(df, config):
         '# Execucao Configurada do ClonalG\n',
         '- Fluxo: o ClonalG inicia em cada k candidato e usa mutacao estrutural para adicionar/remover centroides dentro dos limites configurados; o melhor k final do ClonalG e repassado ao k-Means.',
         '- Afinidade interna do ClonalG: indice Silhouette.',
-        '- Mutacao: estrutural, adicionando/removendo centroides dentro dos limites configurados; sem ruido gaussiano.',
+        '- Mutacao: hibrida, com mutacao estrutural de k e mutacao parametrica gaussiana nos centroides existentes.',
+        '- Selecao: combina afinidade por Silhouette com recompensa por diversidade entre anticorpos.',
         f'- Parametros: N={config["n_antibodies"]}, rho={config["rho"]}, beta={config["beta"]}, '
-        f'replace_rate={config["replace_rate"]}, selection_rate={config["selection_rate"]}',
+        f'replace_rate={config["replace_rate"]}, selection_rate={config["selection_rate"]}, '
+        f'parametric_mutation_scale={config["parametric_mutation_scale"]}, diversity_weight={config["diversity_weight"]}',
         f'- Candidatos/limites de k: {",".join(str(k) for k in config["k_candidates"])}',
         f'- Repeticoes por dataset: {config["runs"]}',
         f'- Geracoes por repeticao: {config["iterations"]}',
@@ -247,6 +265,8 @@ def write_iteration_output(iteration_df, run_df, config):
         f'- beta: {config["beta"]}',
         f'- replace_rate: {config["replace_rate"]}',
         f'- selection_rate: {config["selection_rate"]}',
+        f'- parametric_mutation_scale: {config["parametric_mutation_scale"]}',
+        f'- diversity_weight: {config["diversity_weight"]}',
         f'- runs: {config["runs"]}',
         f'- iterations: {config["iterations"]}',
         '',

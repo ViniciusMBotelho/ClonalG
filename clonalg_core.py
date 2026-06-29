@@ -15,6 +15,8 @@ class ClonalG:
         selection_rate=1.0,
         memory_rate=0.25,
         silhouette_sample_size=None,
+        parametric_mutation_scale=0.05,
+        diversity_weight=0.15,
     ):
         self.n_antibodies = n_antibodies
         self.k = int(k)
@@ -32,6 +34,8 @@ class ClonalG:
         self.selection_rate = selection_rate
         self.memory_rate = memory_rate
         self.silhouette_sample_size = silhouette_sample_size
+        self.parametric_mutation_scale = parametric_mutation_scale
+        self.diversity_weight = diversity_weight
         self.memory = None
         self.population = None
         self.affinities = None
@@ -78,17 +82,61 @@ class ClonalG:
             return np.zeros_like(raw_scores)
         return (raw_scores - min_s) / (max_s - min_s + 1e-8)
 
+    @staticmethod
+    def _antibody_distance(a, b):
+        distances = cdist(a, b, metric='euclidean')
+        return 0.5 * (np.mean(np.min(distances, axis=1)) + np.mean(np.min(distances, axis=0)))
+
+    def _diversity_scores(self, candidates, selected_indices, remaining_indices):
+        if not selected_indices:
+            return np.zeros(len(remaining_indices))
+
+        scores = []
+        selected = [candidates[idx] for idx in selected_indices]
+        for idx in remaining_indices:
+            distances = [self._antibody_distance(candidates[idx], selected_item) for selected_item in selected]
+            scores.append(min(distances))
+        return self._normalize_affinities(np.array(scores))
+
+    def _rank_with_diversity(self, candidates, affinities, limit):
+        n_candidates = len(candidates)
+        if n_candidates == 0:
+            return []
+
+        affinity_norm = self._normalize_affinities(affinities)
+        selected = [int(np.argmax(affinities))]
+        remaining = [idx for idx in range(n_candidates) if idx != selected[0]]
+
+        while remaining and len(selected) < limit:
+            diversity_norm = self._diversity_scores(candidates, selected, remaining)
+            scores = affinity_norm[remaining] + self.diversity_weight * diversity_norm
+            best_remaining_pos = int(np.argmax(scores))
+            selected.append(remaining.pop(best_remaining_pos))
+
+        remaining = sorted(remaining, key=lambda idx: affinities[idx], reverse=True)
+        return selected + remaining
+
     def _select_memory_and_population(self, candidates, affinities):
-        order = np.argsort(affinities)[::-1]
+        n_memory = self._memory_size()
+        if self.diversity_weight > 0:
+            order = np.array(self._rank_with_diversity(candidates, affinities, n_memory))
+        else:
+            order = np.argsort(affinities)[::-1]
         ordered_candidates = [candidates[idx] for idx in order]
         ordered_affinities = affinities[order]
-        n_memory = self._memory_size()
 
         self.memory = ordered_candidates[:n_memory]
         self.memory_affinities = ordered_affinities[:n_memory]
         self.population = ordered_candidates[n_memory:self.n_antibodies]
         self.population_affinities = ordered_affinities[n_memory:self.n_antibodies]
         self.affinities = ordered_affinities[:self.n_antibodies]
+
+    def _apply_parametric_mutation(self, clone, affinity_norm):
+        if self.parametric_mutation_scale <= 0:
+            return clone
+        sigma = self.parametric_mutation_scale * np.exp(-self.rho * affinity_norm)
+        noise = np.random.normal(loc=0.0, scale=sigma, size=clone.shape)
+        return clone + noise
 
     def _clone_and_mutate(self, population, affinities_norm, data):
         new_clones = []
@@ -110,6 +158,7 @@ class ClonalG:
                         remove_idx = np.random.choice(len(clone))
                         clone = np.delete(clone, remove_idx, axis=0)
 
+                clone = self._apply_parametric_mutation(clone, affinities_norm[i])
                 new_clones.append(clone)
         return new_clones
 
@@ -148,7 +197,7 @@ class ClonalG:
             history.append(best_affinity)
 
             if verbose and (it % 10 == 0 or it == n_iterations - 1):
-                print(f"Geração {it}: Afinidade euclidiana = {best_affinity:.4f} (k={len(self.memory[0])})")
+                print(f"Geração {it}: Afinidade Silhouette = {best_affinity:.4f} (k={len(self.memory[0])})")
 
         return self.memory[0], history
 

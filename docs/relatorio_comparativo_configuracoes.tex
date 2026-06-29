@@ -126,7 +126,7 @@ O valor do Silhouette fica aproximadamente entre \(-1\) e \(1\). Valores mais pr
 
 \subsection{Processos imunológicos implementados}
 
-O enunciado exige que o ClonalG tenha quatro processos imunológicos principais. Eles foram implementados da seguinte forma:
+A implementação abordou os seguintes pontos:
 
 \begin{itemize}
     \item \textbf{Reconhecimento}: cada anticorpo gera grupos por distância Euclidiana entre os pontos e os centroides. Em seguida, sua afinidade é medida pelo índice Silhouette.
@@ -251,7 +251,7 @@ DataSet & Config. & \(k\) final & \(k\) inicial melhor & ClonalG médio & Melhor
 
 \subsection{Melhores parâmetros por dataset}
 
-Um dos pontos pedidos no enunciado é apresentar os melhores parâmetros finais para cada dataset. A Tabela~\ref{tab:melhores-parametros} mostra a configuração com maior Silhouette médio do ClonalG em cada caso.
+A Tabela~\ref{tab:melhores-parametros} mostra a configuração com maior Silhouette médio do ClonalG em cada caso.
 
 \begin{table}[H]
 \centering
@@ -322,13 +322,20 @@ O fator de mutação \(\rho\) e o fator de clonagem \(\beta\) influenciam o equi
 
 A taxa de substituição ajudou a manter diversidade. C1 tinha substituição 0.10, enquanto C3 e C4 usaram 0.30 e 0.40. Nos datasets em que o ClonalG precisou escapar de soluções piores, como o DataSet 2, essa diversidade foi importante.
 
-\subsection{Descoberta do número de clusters}
+\subsection{Visualização dos agrupamentos}
 
-O enunciado pergunta se o ClonalG consegue lidar organicamente com o número de clusters. Neste trabalho, ele não escolhe \(k\) de forma totalmente livre, pois recebe um intervalo de candidatos entre 2 e 6. No entanto, dentro desse intervalo, a mutação estrutural permite adicionar ou remover centroides.
+A Figura~\ref{fig:comparativo-visual-clonalg-kmeans} mostra visualmente os agrupamentos gerados pelo ClonalG e pelo KMeans. Para cada dataset, a coluna da esquerda apresenta o agrupamento obtido pelo ClonalG, enquanto a coluna da direita apresenta o agrupamento obtido pelo KMeans. Os pontos representam as amostras e os marcadores pretos representam os centroides usados por cada algoritmo.
 
-Os resultados mostram que essa estratégia funcionou em vários casos. No DataSet 2, por exemplo, diferentes \(k\) iniciais levaram ao \(k=2\) final, que foi o melhor resultado. No DataSet 4, o algoritmo convergiu para \(k=4\). Nos DataSets 1 e 5, as configurações foram estáveis em \(k=3\) e \(k=2\), respectivamente.
+Nos datasets com dois atributos, a visualização usa os próprios atributos padronizados. Nos datasets com mais de dois atributos, a figura usa uma projeção PCA em duas dimensões apenas para facilitar a visualização. Essa projeção não altera o cálculo do Silhouette nem os resultados numéricos apresentados nas tabelas.
 
-Portanto, a resposta mais adequada é: o ClonalG implementado consegue ajustar \(k\) organicamente dentro de limites definidos pelo usuário. Ele ainda precisa de intervenção para definir o intervalo permitido, mas não depende de um único \(k\) fixo desde o início.
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth,height=0.86\textheight,keepaspectratio]{resultados/comparativo_visual_clonalg_kmeans.png}
+\caption{Comparação visual dos agrupamentos gerados pelo ClonalG e pelo KMeans.}
+\label{fig:comparativo-visual-clonalg-kmeans}
+\end{figure}
+
+A comparação visual ajuda a interpretar os resultados numéricos. Nos DataSets 1 e 5, os agrupamentos aparecem estáveis e semelhantes entre os dois algoritmos, o que combina com o empate no Silhouette. No DataSet 2, o ClonalG apresentou separação mais favorável segundo a métrica usada. No DataSet 3, a visualização reforça que a separação é mais difícil, e o KMeans obteve vantagem numérica. No DataSet 4, os dois algoritmos produziram agrupamentos próximos, com pequena vantagem para o ClonalG na melhor configuração.
 
 \subsection{Memória imunológica}
 
@@ -350,7 +357,7 @@ O trabalho implementou e avaliou o ClonalG para agrupamento de dados, incluindo 
 
 Os experimentos com quatro configurações mostraram que o ClonalG é competitivo com o k-Médias. Ele empatou nos DataSets 1 e 5, superou claramente o k-Médias no DataSet 2, superou levemente no DataSet 4 e foi superado no DataSet 3. A melhor configuração geral ficou entre C3 e C4, mas a melhor escolha dependeu do dataset.
 
-A análise dos parâmetros mostrou que população maior e maior substituição podem melhorar a exploração, mas também aumentam custo computacional. O algoritmo conseguiu ajustar o número de clusters dentro do intervalo permitido, o que responde ao desafio do enunciado: ele não descobre \(k\) de forma totalmente independente, mas consegue modificar \(k\) durante a busca.
+A análise dos parâmetros mostrou que população maior e maior substituição podem melhorar a exploração, mas também aumentam custo computacional. A comparação visual dos agrupamentos reforça os resultados numéricos: em alguns datasets os dois algoritmos chegam a partições muito parecidas, enquanto em outros a busca populacional do ClonalG encontra uma organização mais favorável segundo o Silhouette.
 
 Como melhoria futura, seria interessante testar outras formas de mutação, executar mais repetições, incluir tempo médio de execução e comparar também com outras métricas de validação interna além do Silhouette.
 

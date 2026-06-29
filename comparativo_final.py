@@ -39,6 +39,8 @@ def default_configs():
             'beta': 10,
             'replace_rate': 0.10,
             'selection_rate': 1.0,
+            'parametric_mutation_scale': 0.05,
+            'diversity_weight': 0.15,
             'k_min': min(DEFAULT_K_VALUES.values()),
             'k_max': max(DEFAULT_K_VALUES.values()),
         }
@@ -103,6 +105,8 @@ def run_clonalg(data, cfg, ds_id):
             replace_rate=float(cfg['replace_rate']),
             selection_rate=float(cfg.get('selection_rate', 1.0)),
             silhouette_sample_size=SILHOUETTE_SAMPLE_SIZE,
+            parametric_mutation_scale=float(cfg.get('parametric_mutation_scale', 0.05)),
+            diversity_weight=float(cfg.get('diversity_weight', 0.15)),
         )
         centroids, history = sia.fit(data, n_iterations=N_ITERATIONS, verbose=False)
         labels = sia.predict(data, centroids)
@@ -189,6 +193,8 @@ def main():
             'beta': float(cfg['beta']),
             'replace_rate': float(cfg['replace_rate']),
             'selection_rate': float(cfg.get('selection_rate', 1.0)),
+            'parametric_mutation_scale': float(cfg.get('parametric_mutation_scale', 0.05)),
+            'diversity_weight': float(cfg.get('diversity_weight', 0.15)),
             'ClonalG_media': clonalg_result['mean'],
             'ClonalG_melhor': clonalg_result['best']['score'],
             'KMeans': score_km,
