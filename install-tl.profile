@@ -1,0 +1,16 @@
+selected_scheme scheme-basic
+TEXDIR /home/marcos/.local/texlive/2026
+TEXMFLOCAL /home/marcos/.local/texlive/2026/texmf-local
+TEXMFSYSVAR /home/marcos/.local/texlive/2026/texmf-var
+TEXMFSYSCONFIG /home/marcos/.local/texlive/2026/texmf-config
+TEXMFVAR /home/marcos/.texlive2026/texmf-var
+TEXMFCONFIG /home/marcos/.texlive2026/texmf-config
+TEXMFHOME /home/marcos/texmf
+binary_x86_64-linux 1
+option_doc 0
+option_src 0
+option_letter 0
+option_fmt 1
+option_write18_restricted 1
+tlpdbopt_install_docfiles 0
+tlpdbopt_install_srcfiles 0

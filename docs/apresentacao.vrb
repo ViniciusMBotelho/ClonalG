@@ -1,0 +1,24 @@
+\frametitle{Pseudocódigo do ClonalG Otimizado}
+\tiny
+\begin{semiverbatim}
+Entrada: dados X, candidatos de k, tamanho da população N,
+         rho, beta, taxa de seleção, taxa de substituição,
+         métrica de afinidade, número de iterações
+
+Para cada valor inicial de k:
+    Criar população inicial de anticorpos
+    Calcular afinidade inicial por Silhouette ou Davies-Bouldin
+    Separar memória e repertório
+    Para cada iteração:
+        Calcular fator de decaimento temporal da mutação
+        Selecionar os melhores anticorpos da memória
+        Para cada anticorpo selecionado:
+            Gerar clones proporcionalmente à afinidade
+            Aplicar hipermutação estrutural e paramétrica com decaimento
+        Calcular afinidade dos clones
+        Combinar memória, repertório e clones
+        Manter os melhores na memória usando afinidade + diversidade
+        Substituir parte dos piores indivíduos por novos anticorpos
+        Guardar o melhor resultado obtido
+Comparar o melhor ClonalG com o k-Médias usando o mesmo k final.
+\end{semiverbatim}

@@ -58,7 +58,7 @@
 \usepackage{tikz}
 
 \title[ClonalG Otimizado para Clustering]{Otimização do Algoritmo ClonalG para Agrupamento de Dados}
-\subtitle{Busca Local Contínua e Seleção por Diversidade}
+\subtitle{Busca Local Contínua, Diversidade e Mutação Adaptativa}
 \author[Marcos e Vinicius]{Marcos Daniel e Vinicius Macedo}
 \institute[IFNMG]{Instituto Federal do Norte de Minas Gerais}
 \date{Julho de 2026}
@@ -91,24 +91,72 @@
     Unir a busca global robusta do algoritmo imunológico com a precisão da busca contínua local e a manutenção de nichos de busca distintos.
   \end{block}
   \begin{enumerate}
-    \item \textbf{Afinidade baseada no Índice Silhouette:} Avalia qualitativamente a coesão interna e separação externa dos clusters.
+    \item \textbf{Afinidade configurável:} Suporte ao Índice Silhouette e ao Davies-Bouldin como critérios de qualidade dos agrupamentos.
     \item \textbf{Mutação Estrutural Dinâmica de $k$:} Adiciona ou remove centroides de forma adaptativa.
     \item \textbf{Hipermutação Paramétrica (Novo):} Adição de perturbação gaussiana contínua para refinamento espacial fino.
+    \item \textbf{Decaimento Temporal da Mutação (Novo):} A intensidade da mutação diminui ao longo das gerações.
     \item \textbf{Seleção por Diversidade na Memória (Novo):} Ponderação explícita que penaliza anticorpos redundantes e preserva variedade.
   \end{enumerate}
+\end{frame}
+
+\begin{frame}[fragile]{Pseudocódigo do ClonalG Otimizado}
+\tiny
+\begin{semiverbatim}
+Entrada: dados X, candidatos de k, tamanho da população N,
+         rho, beta, taxa de seleção, taxa de substituição,
+         métrica de afinidade, número de iterações
+
+Para cada valor inicial de k:
+    Criar população inicial de anticorpos
+    Calcular afinidade inicial por Silhouette ou Davies-Bouldin
+    Separar memória e repertório
+    Para cada iteração:
+        Calcular fator de decaimento temporal da mutação
+        Selecionar os melhores anticorpos da memória
+        Para cada anticorpo selecionado:
+            Gerar clones proporcionalmente à afinidade
+            Aplicar hipermutação estrutural e paramétrica com decaimento
+        Calcular afinidade dos clones
+        Combinar memória, repertório e clones
+        Manter os melhores na memória usando afinidade + diversidade
+        Substituir parte dos piores indivíduos por novos anticorpos
+        Guardar o melhor resultado obtido
+Comparar o melhor ClonalG com o k-Médias usando o mesmo k final.
+\end{semiverbatim}
 \end{frame}
 
 \begin{frame}{Hipermutação Paramétrica}{Refinamento Local Fino}
   \begin{itemize}
     \item A cada clone gerado, além da variação estrutural de $k$, adicionamos perturbação gaussiana às posições dos centroides:
       \[ C_{i} \leftarrow C_{i} + \mathcal{N}(0, \sigma^2 \cdot \mathbf{I}) \]
-    \item O desvio padrão $\sigma$ (escala da mutação) decai exponencialmente conforme a afinidade normalizada $A_{\text{norm}}$ do anticorpo:
-      \[ \sigma = \text{scale} \times e^{-\rho \cdot A_{\text{norm}}} \]
+    \item O desvio padrão $\sigma$ decai conforme a afinidade normalizada $A_{\text{norm}}$ e o tempo de evolução $d(t)$:
+      \[ \sigma = \text{scale} \times d(t) \times e^{-\rho \cdot A_{\text{norm}}} \]
     \item \textbf{Intuição Biológica/Computacional:}
       \begin{itemize}
         \item \textit{Anticorpos de alta afinidade} sofrem mutações muito pequenas (busca local fina / exploitation).
         \item \textit{Anticorpos de baixa afinidade} sofrem perturbações maiores (exploração espacial / exploration).
+        \item \textit{Gerações finais} reduzem a perturbação para estabilizar os melhores centroides encontrados.
       \end{itemize}
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Afinidade e Decaimento}{Novas Opções Implementadas}
+  \begin{itemize}
+    \item \textbf{Métrica Silhouette:}
+      \begin{itemize}
+        \item Mede coesão interna e separação externa; quanto maior, melhor.
+        \item Continua sendo a métrica principal dos experimentos comparativos.
+      \end{itemize}
+    \item \textbf{Métrica Davies-Bouldin:}
+      \begin{itemize}
+        \item Mede similaridade média entre cada cluster e seu cluster mais parecido; quanto menor, melhor.
+        \item No código, a afinidade usa o valor negativo: $\text{afinidade} = -DB$, mantendo a regra geral de maximização.
+      \end{itemize}
+    \item \textbf{Decaimento temporal da mutação:}
+      \[
+        d(t) = \max\left(0.05,\; 1 - \frac{t}{T}\right)
+      \]
+      No início a busca explora mais; no final a mutação fica limitada a ajustes finos.
   \end{itemize}
 \end{frame}
 
@@ -128,49 +176,92 @@
 \end{frame}
 
 \begin{frame}{Metodologia Experimental}
-  \begin{columns}
-    \begin{column}{0.5\textwidth}
-      \textbf{Configuração dos Parâmetros:}
-      \begin{itemize}
-        \item População ($N$): 60
-        \item Taxa de seleção ($SelectionRate$): 0.6
-        \item Taxa de substituição ($ReplaceRate$): 0.4
-        \item Escala de ruído ($scale$): 0.05
-        \item Peso da diversidade ($w_{\text{div}}$): 0.15
-        \item Execuções independentes: 3 runs por dataset.
-      \end{itemize}
-    \end{column}
-    \begin{column}{0.5\textwidth}
-      \textbf{Conjuntos de Dados (Datasets):}
-      \begin{itemize}
-        \item \textbf{DS1 e DS5:} Estrutura bem definida bidimensional.
-        \item \textbf{DS2:} Alta dispersão e sobreposição de dados.
-        \item \textbf{DS3:} Dados quadridimensionais com 6 clusters.
-        \item \textbf{DS4:} Estrutura tridimensional.
-      \end{itemize}
-    \end{column}
-  \end{columns}
-\end{frame}
-
-\begin{frame}{Resultados}{Tabela Comparativa de Silhouette}
   \begin{table}
     \centering
-    \footnotesize
-    \begin{tabular}{ccccccc}
+    \scriptsize
+    \begin{tabular}{ccccccp{4.0cm}}
       \toprule
-      DataSet & $k$ & ClonalG (Melhor) & ClonalG (Média) & k-Means & $\Delta$ (Média) \\
+      Config. & $N$ & $\rho$ & $\beta$ & Subst. & Sel. & Interpretação \\
       \midrule
-      \textbf{DS1} & 3 & \textbf{0.6480} & 0.6480 & 0.6480 & 0.0000 \\
-      \textbf{DS2} & 2 & \textbf{0.6539} & \textbf{0.6220} & 0.3589 & \textbf{+0.2631} \\
-      \textbf{DS3} & 6 & 0.2143 & 0.2045 & \textbf{0.2221} & -0.0176 \\
-      \textbf{DS4} & 4 & \textbf{0.5905} & \textbf{0.5903} & 0.5866 & \textbf{+0.0037} \\
-      \textbf{DS5} & 2 & \textbf{0.6644} & 0.6644 & 0.6644 & 0.0000 \\
+      C1 & 15 & 2.0 & 15.0 & 0.10 & 0.85 & Menor diversidade e seleção alta \\
+      C2 & 15 & 2.0 & 5.0 & 0.30 & 0.50 & Menos clones e mais substituição \\
+      C3 & 30 & 2.0 & 15.0 & 0.30 & 0.30 & População maior e seleção restrita \\
+      C4 & 60 & 3.5 & 30.0 & 0.40 & 0.60 & Busca mais intensa e população maior \\
       \bottomrule
     \end{tabular}
-    \caption{Silhouette médio e melhor em 3 execuções independentes.}
+  \end{table}
+  \vspace{0.2cm}
+  \begin{itemize}
+    \item Mesmas configurações da versão antiga, agora com \textbf{mutação paramétrica} ($scale=0.05$), \textbf{seleção por diversidade} ($w_{\text{div}}=0.15$) e \textbf{decaimento temporal} da mutação.
+    \item Avaliação: 5 datasets, $k \in \{2,3,4,5,6\}$, 3 execuções independentes e 50 iterações por execução.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Resultados}{Algoritmo Antigo vs Algoritmo Novo}
+  \begin{table}
+    \centering
+    \small
+    \begin{tabular}{lcccc}
+      \toprule
+      Config. & Média antiga & Média nova & Ganho médio & Maior ganho pontual \\
+      \midrule
+      C1 & 0.5271 & 0.5389 & +0.0117 & DS2: +0.0491 \\
+      C2 & 0.5289 & 0.5449 & \textbf{+0.0160} & \textbf{DS2: +0.0758} \\
+      C3 & 0.5462 & 0.5475 & +0.0013 & DS3: +0.0075 \\
+      C4 & 0.5463 & \textbf{0.5510} & +0.0047 & DS2: +0.0222 \\
+      \bottomrule
+    \end{tabular}
+    \caption{Comparação do Silhouette médio agregado nos 5 datasets.}
   \end{table}
   \begin{itemize}
-    \item \textbf{Destaque no DS2:} O ClonalG otimizado superou o k-Means em \textbf{+0.2631} na média de Silhouette.
+    \item O algoritmo novo melhorou a média em \textbf{todas as configurações}.
+    \item A melhor média geral foi da \textbf{C4 nova}: 0.5510.
+    \item O maior ganho individual ocorreu no \textbf{DataSet 2 com C2}: 0.5462 $\rightarrow$ 0.6220.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Resultados}{Melhor ClonalG Novo vs k-Means}
+  \begin{table}
+    \centering
+    \small
+    \begin{tabular}{lccccc}
+      \toprule
+      Dataset & Melhor config. & $k$ final & ClonalG novo & k-Means & $\Delta$ \\
+      \midrule
+      DS1 & C1--C4 & 3 & 0.6480 & 0.6480 & 0.0000 \\
+      DS2 & C4 & 2 & \textbf{0.6507} & 0.3589 & \textbf{+0.2918} \\
+      DS3 & C3 & 6 & 0.2067 & \textbf{0.2221} & -0.0153 \\
+      DS4 & C4 & 4 & \textbf{0.5903} & 0.5866 & \textbf{+0.0037} \\
+      DS5 & C1--C4 & 2 & 0.6644 & 0.6644 & 0.0000 \\
+      \bottomrule
+    \end{tabular}
+    \caption{Comparação usando o mesmo $k$ final encontrado pelo ClonalG.}
+  \end{table}
+  \begin{itemize}
+    \item O ClonalG novo empata nos datasets estáveis, supera claramente no DS2 e supera levemente no DS4.
+    \item O DS3 permanece como caso mais difícil: mesmo com a melhoria, o k-Means ainda obteve maior Silhouette.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Resultados}{Onde a Melhoria Teve Mais Impacto}
+  \begin{table}
+    \centering
+    \small
+    \begin{tabular}{lcccp{4.2cm}}
+      \toprule
+      Dataset & Média antiga & Média nova & Ganho & Leitura do resultado \\
+      \midrule
+      DS1 & 0.6480 & 0.6480 & 0.0000 & Estrutura já resolvida pela versão antiga \\
+      DS2 & 0.5870 & \textbf{0.6230} & \textbf{+0.0359} & Maior benefício da diversidade e ajuste local \\
+      DS3 & 0.1990 & 0.2034 & +0.0044 & Reduziu a perda, mas k-Means ainda ficou acima \\
+      DS4 & 0.5873 & 0.5891 & +0.0018 & Ganho pequeno, porém consistente \\
+      DS5 & 0.6644 & 0.6644 & 0.0000 & Empate estável nas duas versões \\
+      \bottomrule
+    \end{tabular}
+  \end{table}
+  \begin{itemize}
+    \item A melhoria não muda os casos já saturados (DS1 e DS5), mas aumenta robustez nos casos mais difíceis.
+    \item No DS2, o ganho médio por dataset foi o mais relevante: \textbf{+0.0359}.
   \end{itemize}
 \end{frame}
 
@@ -203,7 +294,7 @@
       \textbf{Comportamento da Evolução:}
       \begin{itemize}
         \item A afinidade (Índice Silhouette) cresce rapidamente nas primeiras 10 gerações.
-        \item A mutação paramétrica contínua age refinando localmente as soluções.
+        \item A mutação paramétrica contínua age refinando localmente as soluções, com perturbações menores nas gerações finais.
         \item A estabilização ocorre de maneira suave, indicando robustez e convergência estável do sistema.
       \end{itemize}
     \end{column}
@@ -224,14 +315,19 @@
       \begin{itemize}
         \item A busca paramétrica refinou as coordenadas reais dos centroides, gerando limites de decisão mais suaves e aumentando a métrica do Silhouette.
       \end{itemize}
+    \item \textbf{Controle Adaptativo da Busca:}
+      \begin{itemize}
+        \item O decaimento temporal reduz mutações agressivas no fim da execução, enquanto o suporte ao Davies-Bouldin permite testar outra função objetivo sem alterar o fluxo principal do ClonalG.
+      \end{itemize}
   \end{itemize}
 \end{frame}
 
 \begin{frame}{Conclusões}
   \begin{itemize}
     \item O algoritmo ClonalG melhorado provou ser uma alternativa robusta e adaptativa ao clássico k-Means.
-    \item As melhorias propostas (busca local contínua via ruído gaussiano adaptativo e nichamento por diversidade) sanaram a convergência prematura típica do SIA básico.
-    \item \textbf{Trabalhos Futuros:} Testar outras métricas de afinidade além do Silhouette (como Davies-Bouldin) e automatizar o decaimento dinâmico dos hiperparâmetros de mutação ao longo das gerações.
+    \item As melhorias propostas (busca local contínua via ruído gaussiano adaptativo, decaimento temporal e nichamento por diversidade) sanaram a convergência prematura típica do SIA básico.
+    \item O suporte ao Davies-Bouldin tornou a função de afinidade configurável, permitindo comparar objetivos de agrupamento diferentes no mesmo algoritmo.
+    \item \textbf{Trabalhos Futuros:} Hibridizar o ClonalG com pequenos ciclos de Lloyd/k-Means para refinar centroides após a mutação.
   \end{itemize}
 \end{frame}
 
