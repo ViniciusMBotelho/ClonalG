@@ -29,7 +29,7 @@ Este documento sintetiza os slides da apresentação do projeto prático de Comp
 ## Slide 3: A Solução Proposta - Visão Geral
 *   **Objetivo:** Introduzir mecanismos híbridos de busca contínua e diversidade genética ao ClonalG tradicional.
 *   **Arquitetura do ClonalG Otimizado:**
-    1.  **Afinidade Configurável:** Suporte ao Índice Silhouette e ao Davies-Bouldin.
+    1.  **Afinidade por Silhouette:** Uso do Índice Silhouette como critério principal de qualidade.
     2.  **Mutação Estrutural de $k$:** Operações de adição/remoção de centroides para auto-organização do número ideal de clusters.
     3.  **NOVO: Hipermutação Paramétrica:** Busca local no espaço contínuo por perturbação gaussiana dos centroides.
     4.  **NOVO: Decaimento Temporal da Mutação:** Redução gradual da intensidade de mutação ao longo das gerações.
@@ -42,11 +42,11 @@ Este documento sintetiza os slides da apresentação do projeto prático de Comp
 ```text
 Entrada: dados X, candidatos de k, tamanho da população N,
          rho, beta, taxa de seleção, taxa de substituição,
-         métrica de afinidade, número de iterações
+         número de iterações
 
 Para cada valor inicial de k:
     Criar população inicial de anticorpos
-    Calcular afinidade inicial por Silhouette ou Davies-Bouldin
+    Calcular afinidade inicial por Silhouette
     Separar memória e repertório
 
     Para cada iteração:
@@ -74,18 +74,12 @@ Comparar o melhor ClonalG com o k-Médias usando o mesmo k final.
         $$\sigma = \text{scale} \times d(t) \times e^{-\rho \cdot A_{\text{norm}}}$$
     *   *Intuição:* Centróides ruins sofrem grande variação espacial; centróides excelentes sofrem pequenos ajustes; nas gerações finais a busca estabiliza.
 
-2.  **Davies-Bouldin como Métrica Alternativa de Afinidade:**
-    *   O Silhouette continua sendo a métrica principal dos resultados.
-    *   O Davies-Bouldin mede a similaridade entre clusters; quanto menor, melhor.
-    *   Para manter o ClonalG maximizando afinidade, o código usa:
-        $$\text{afinidade} = -DB$$
-
-3.  **Decaimento Temporal da Mutação:**
+2.  **Decaimento Temporal da Mutação:**
     *   A intensidade da mutação diminui conforme a iteração avança:
         $$d(t) = \max(0.05, 1 - t/T)$$
     *   Isso favorece exploração no começo e refinamento no fim.
 
-4.  **Seleção Guiada por Diversidade (Preservação de Nichos):**
+3.  **Seleção Guiada por Diversidade (Preservação de Nichos):**
     *   Evita redundâncias na Memória Imunológica ($A_{bm}$).
     *   Distância entre anticorpos $a$ e $b$ calculada via matching mínimo de centroides:
         $$D(a, b) = \frac{1}{2} \left( \text{mean}_i \min_j d(a_i, b_j) + \text{mean}_j \min_i d(a_i, b_j) \right)$$
@@ -152,14 +146,13 @@ Comparar o melhor ClonalG com o k-Médias usando o mesmo k final.
     *   A diversidade evitou que todos os anticorpos de memória convergissem para a mesma região de busca. Isso permitiu a avaliação simultânea de diferentes estruturas de $k$ durante a busca evolutiva.
 *   **O papel da mutação paramétrica:**
     *   Ao adicionar ruído contínuo gaussiano, o ClonalG conseguiu deslocar os centroides de forma suave, permitindo ajustar a posição ideal mesmo quando as amostras originais do dataset não coincidiam exatamente com os centros ideais dos clusters.
-*   **O papel do decaimento temporal e do Davies-Bouldin:**
+*   **O papel do decaimento temporal:**
     *   O decaimento temporal controla a busca: exploração maior no início e ajustes menores no fim.
-    *   O Davies-Bouldin torna a afinidade configurável, permitindo testar outro critério de qualidade sem alterar o fluxo principal do ClonalG.
 
 ---
 
 ## Slide 11: Conclusão
 *   O ClonalG Otimizado resolve eficientemente a limitação clássica do k-Means (sensibilidade a mínimos locais e necessidade de $k$ fixo).
 *   A introdução de busca contínua via mutação gaussiana, decaimento temporal e preservação de nichos via seleção de diversidade melhoraram consideravelmente a robustez do algoritmo imunológico comparado à versão básica.
-*   O suporte ao Davies-Bouldin ampliou o algoritmo para trabalhar com mais de um objetivo de qualidade de agrupamento.
+*   A afinidade por Silhouette manteve o objetivo experimental consistente entre seleção, validação e comparação com o k-Means.
 *   A abordagem consolida as vantagens de algoritmos evolucionários/imunológicos globais para problemas complexos de aprendizado de máquina não supervisionado.

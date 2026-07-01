@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 from sklearn.cluster import KMeans
-from sklearn.metrics import silhouette_score
+from sklearn.metrics import silhouette_score, davies_bouldin_score
 
 from clonalg_core import ClonalG
 from markdown_utils import dataframe_to_markdown
@@ -29,6 +29,7 @@ K_CANDIDATES = [2, 3, 4, 5, 6]
 RUNS = 3
 ITERATIONS = 50
 SILHOUETTE_SAMPLE_SIZE = 300
+AFFINITY_METRIC = 'silhouette'
 
 
 CONFIG = {
@@ -44,6 +45,7 @@ CONFIG = {
     'iterations': ITERATIONS,
     'seed': RANDOM_SEED,
     'silhouette_sample_size': SILHOUETTE_SAMPLE_SIZE,
+    'affinity_metric': AFFINITY_METRIC,
 }
 
 
@@ -66,6 +68,8 @@ def validate_config(config):
         raise ValueError('runs deve ser maior que zero.')
     if config['iterations'] <= 0:
         raise ValueError('iterations deve ser maior que zero.')
+    if config.get('affinity_metric', 'silhouette') not in {'silhouette', 'davies_bouldin'}:
+        raise ValueError("affinity_metric deve ser 'silhouette' ou 'davies_bouldin'.")
 
 
 def k_bounds(config):
@@ -88,6 +92,12 @@ def safe_silhouette(data, labels):
     return silhouette_score(data, labels)
 
 
+def safe_davies_bouldin(data, labels):
+    if len(np.unique(labels)) < 2:
+        return 999.0
+    return davies_bouldin_score(data, labels)
+
+
 def run_clonalg_once(data, config, ds_id, run, k):
     np.random.seed(config['seed'] + ds_id * 1000 + k * 100 + run)
     k_min, k_max = k_bounds(config)
@@ -103,12 +113,16 @@ def run_clonalg_once(data, config, ds_id, run, k):
         silhouette_sample_size=config['silhouette_sample_size'],
         parametric_mutation_scale=config['parametric_mutation_scale'],
         diversity_weight=config['diversity_weight'],
+        affinity_metric=config.get('affinity_metric', 'silhouette'),
     )
     best_ab, history = sia.fit(data, n_iterations=config['iterations'], verbose=False)
     labels = sia.predict(data, best_ab)
-    score = safe_silhouette(data, labels)
+    silhouette = safe_silhouette(data, labels)
+    davies_bouldin = safe_davies_bouldin(data, labels)
     return {
-        'score': score,
+        'score': silhouette,
+        'silhouette': silhouette,
+        'davies_bouldin': davies_bouldin,
         'k': len(best_ab),
         'k_inicial': k,
         'history': history,
@@ -117,10 +131,12 @@ def run_clonalg_once(data, config, ds_id, run, k):
 
 def evaluate_dataset(data, ds_id, config):
     candidates = []
+    use_db_objective = config.get('affinity_metric', 'silhouette') == 'davies_bouldin'
     for k in config['k_candidates']:
         runs = [run_clonalg_once(data, config, ds_id, run, k) for run in range(config['runs'])]
-        scores = [run['score'] for run in runs]
-        best_run = max(runs, key=lambda run: run['score'])
+        scores = [run['silhouette'] for run in runs]
+        db_scores = [run['davies_bouldin'] for run in runs]
+        best_run = min(runs, key=lambda run: run['davies_bouldin']) if use_db_objective else max(runs, key=lambda run: run['silhouette'])
         candidates.append({
             'k_inicial': k,
             'k': best_run['k'],
@@ -128,16 +144,21 @@ def evaluate_dataset(data, ds_id, config):
             'mean': float(np.mean(scores)),
             'best': float(np.max(scores)),
             'worst': float(np.min(scores)),
+            'mean_db': float(np.mean(db_scores)),
+            'best_db': float(np.min(db_scores)),
+            'worst_db': float(np.max(db_scores)),
         })
 
-    best_candidate = max(candidates, key=lambda item: item['mean'])
+    best_candidate = min(candidates, key=lambda item: item['mean_db']) if use_db_objective else max(candidates, key=lambda item: item['mean'])
     runs = best_candidate['runs']
-    scores = [run['score'] for run in runs]
+    scores = [run['silhouette'] for run in runs]
+    db_scores = [run['davies_bouldin'] for run in runs]
     k = best_candidate['k']
 
     kmeans = KMeans(n_clusters=k, n_init=30, random_state=config['seed'])
     labels_km = kmeans.fit_predict(data)
     kmeans_score = safe_silhouette(data, labels_km)
+    kmeans_db = safe_davies_bouldin(data, labels_km)
 
     iteration_records = []
     run_records = []
@@ -158,9 +179,11 @@ def evaluate_dataset(data, ds_id, config):
                 'selection_rate': config['selection_rate'],
                 'parametric_mutation_scale': config['parametric_mutation_scale'],
                 'diversity_weight': config['diversity_weight'],
-                'Silhouette_Final': run_result['score'],
+                'affinity_metric': config.get('affinity_metric', 'silhouette'),
+                'Silhouette_Final': run_result['silhouette'],
+                'DaviesBouldin_Final': run_result['davies_bouldin'],
             })
-            for iteration, silhouette in enumerate(run_result['history'], start=1):
+            for iteration, affinity in enumerate(run_result['history'], start=1):
                 iteration_records.append({
                     'DataSet': ds_id,
                     'Run': run_idx,
@@ -175,7 +198,8 @@ def evaluate_dataset(data, ds_id, config):
                     'selection_rate': config['selection_rate'],
                     'parametric_mutation_scale': config['parametric_mutation_scale'],
                     'diversity_weight': config['diversity_weight'],
-                    'Silhouette': silhouette,
+                    'affinity_metric': config.get('affinity_metric', 'silhouette'),
+                    'Afinidade': affinity,
                 })
 
     result = {
@@ -191,13 +215,19 @@ def evaluate_dataset(data, ds_id, config):
         'selection_rate': config['selection_rate'],
         'parametric_mutation_scale': config['parametric_mutation_scale'],
         'diversity_weight': config['diversity_weight'],
+        'affinity_metric': config.get('affinity_metric', 'silhouette'),
         'runs': config['runs'],
         'iterations': config['iterations'],
         'ClonalG_Media_Validacao': float(np.mean(scores)),
         'ClonalG_Melhor_Validacao': float(np.max(scores)),
         'ClonalG_Pior_Validacao': float(np.min(scores)),
+        'ClonalG_DB_Medio_Validacao': float(np.mean(db_scores)),
+        'ClonalG_DB_Melhor_Validacao': float(np.min(db_scores)),
+        'ClonalG_DB_Pior_Validacao': float(np.max(db_scores)),
         'KMeans_Silhouette_mesmo_k': float(kmeans_score),
         'Delta_Validacao_vs_KMeans_mesmo_k': float(np.mean(scores) - kmeans_score),
+        'KMeans_DB_mesmo_k': float(kmeans_db),
+        'Delta_DB_vs_KMeans_mesmo_k': float(np.mean(db_scores) - kmeans_db),
     }
     return result, iteration_records, run_records
 
@@ -228,7 +258,7 @@ def write_markdown_report(df, config):
     lines = [
         '# Execucao Configurada do ClonalG\n',
         '- Fluxo: o ClonalG inicia em cada k candidato e usa mutacao estrutural para adicionar/remover centroides dentro dos limites configurados; o melhor k final do ClonalG e repassado ao k-Means.',
-        '- Afinidade interna do ClonalG: indice Silhouette.',
+        f'- Afinidade interna do ClonalG: {config.get("affinity_metric", "silhouette")}.',
         '- Mutacao: hibrida, com mutacao estrutural de k e mutacao parametrica gaussiana nos centroides existentes.',
         '- Selecao: combina afinidade por Silhouette com recompensa por diversidade entre anticorpos.',
         f'- Parametros: N={config["n_antibodies"]}, rho={config["rho"]}, beta={config["beta"]}, '
@@ -247,8 +277,13 @@ def write_markdown_report(df, config):
         'ClonalG_Melhor_Validacao',
         'KMeans_Silhouette_mesmo_k',
         'Delta_Validacao_vs_KMeans_mesmo_k',
+        'ClonalG_DB_Medio_Validacao',
+        'ClonalG_DB_Melhor_Validacao',
+        'KMeans_DB_mesmo_k',
+        'Delta_DB_vs_KMeans_mesmo_k',
     ]:
-        display[col] = display[col].round(4)
+        if col in display.columns:
+            display[col] = display[col].round(4)
     lines.append(dataframe_to_markdown(display, index=False))
     open(f'{OUTPUT_DIR}/melhores_configuracoes.md', 'w').write('\n'.join(lines))
 
@@ -267,6 +302,7 @@ def write_iteration_output(iteration_df, run_df, config):
         f'- selection_rate: {config["selection_rate"]}',
         f'- parametric_mutation_scale: {config["parametric_mutation_scale"]}',
         f'- diversity_weight: {config["diversity_weight"]}',
+        f'- affinity_metric: {config.get("affinity_metric", "silhouette")}',
         f'- runs: {config["runs"]}',
         f'- iterations: {config["iterations"]}',
         '',
@@ -276,12 +312,15 @@ def write_iteration_output(iteration_df, run_df, config):
     run_display = run_df.copy()
     if not run_display.empty:
         run_display['Silhouette_Final'] = run_display['Silhouette_Final'].round(4)
+        if 'DaviesBouldin_Final' in run_display.columns:
+            run_display['DaviesBouldin_Final'] = run_display['DaviesBouldin_Final'].round(4)
     lines.append(dataframe_to_markdown(run_display, index=False))
 
     lines.extend(['', '## Silhouette por iteracao\n'])
     iteration_display = iteration_df.copy()
     if not iteration_display.empty:
-        iteration_display['Silhouette'] = iteration_display['Silhouette'].round(6)
+        if 'Afinidade' in iteration_display.columns:
+            iteration_display['Afinidade'] = iteration_display['Afinidade'].round(6)
     lines.append(dataframe_to_markdown(iteration_display, index=False))
 
     open(f'{OUTPUT_DIR}/output_iteracoes.md', 'w').write('\n'.join(lines))

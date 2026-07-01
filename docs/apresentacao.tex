@@ -91,7 +91,7 @@
     Unir a busca global robusta do algoritmo imunológico com a precisão da busca contínua local e a manutenção de nichos de busca distintos.
   \end{block}
   \begin{enumerate}
-    \item \textbf{Afinidade configurável:} Suporte ao Índice Silhouette e ao Davies-Bouldin como critérios de qualidade dos agrupamentos.
+    \item \textbf{Afinidade por Silhouette:} Uso do Índice Silhouette como critério principal de qualidade dos agrupamentos.
     \item \textbf{Mutação Estrutural Dinâmica de $k$:} Adiciona ou remove centroides de forma adaptativa.
     \item \textbf{Hipermutação Paramétrica (Novo):} Adição de perturbação gaussiana contínua para refinamento espacial fino.
     \item \textbf{Decaimento Temporal da Mutação (Novo):} A intensidade da mutação diminui ao longo das gerações.
@@ -104,11 +104,11 @@
 \begin{semiverbatim}
 Entrada: dados X, candidatos de k, tamanho da população N,
          rho, beta, taxa de seleção, taxa de substituição,
-         métrica de afinidade, número de iterações
+         número de iterações
 
 Para cada valor inicial de k:
     Criar população inicial de anticorpos
-    Calcular afinidade inicial por Silhouette ou Davies-Bouldin
+    Calcular afinidade inicial por Silhouette
     Separar memória e repertório
     Para cada iteração:
         Calcular fator de decaimento temporal da mutação
@@ -140,17 +140,13 @@ Comparar o melhor ClonalG com o k-Médias usando o mesmo k final.
   \end{itemize}
 \end{frame}
 
-\begin{frame}{Afinidade e Decaimento}{Novas Opções Implementadas}
+\begin{frame}{Afinidade e Decaimento}{Critério de Avaliação e Controle da Busca}
   \begin{itemize}
     \item \textbf{Métrica Silhouette:}
       \begin{itemize}
         \item Mede coesão interna e separação externa; quanto maior, melhor.
-        \item Continua sendo a métrica principal dos experimentos comparativos.
-      \end{itemize}
-    \item \textbf{Métrica Davies-Bouldin:}
-      \begin{itemize}
-        \item Mede similaridade média entre cada cluster e seu cluster mais parecido; quanto menor, melhor.
-        \item No código, a afinidade usa o valor negativo: $\text{afinidade} = -DB$, mantendo a regra geral de maximização.
+        \item É a função de afinidade usada para selecionar, clonar e manter os melhores anticorpos.
+        \item Permite comparar diretamente o ClonalG com o k-Médias usando o mesmo critério de validação.
       \end{itemize}
     \item \textbf{Decaimento temporal da mutação:}
       \[
@@ -317,7 +313,7 @@ Comparar o melhor ClonalG com o k-Médias usando o mesmo k final.
       \end{itemize}
     \item \textbf{Controle Adaptativo da Busca:}
       \begin{itemize}
-        \item O decaimento temporal reduz mutações agressivas no fim da execução, enquanto o suporte ao Davies-Bouldin permite testar outra função objetivo sem alterar o fluxo principal do ClonalG.
+        \item O decaimento temporal reduz mutações agressivas no fim da execução, concentrando a busca em ajustes finos nos centroides mais promissores.
       \end{itemize}
   \end{itemize}
 \end{frame}
@@ -326,7 +322,7 @@ Comparar o melhor ClonalG com o k-Médias usando o mesmo k final.
   \begin{itemize}
     \item O algoritmo ClonalG melhorado provou ser uma alternativa robusta e adaptativa ao clássico k-Means.
     \item As melhorias propostas (busca local contínua via ruído gaussiano adaptativo, decaimento temporal e nichamento por diversidade) sanaram a convergência prematura típica do SIA básico.
-    \item O suporte ao Davies-Bouldin tornou a função de afinidade configurável, permitindo comparar objetivos de agrupamento diferentes no mesmo algoritmo.
+    \item A afinidade por Silhouette manteve o objetivo experimental consistente entre seleção, validação e comparação com o k-Means.
     \item \textbf{Trabalhos Futuros:} Hibridizar o ClonalG com pequenos ciclos de Lloyd/k-Means para refinar centroides após a mutação.
   \end{itemize}
 \end{frame}

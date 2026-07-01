@@ -1,11 +1,11 @@
 # Fdb version 4
-["pdflatex"] 1782869350.79134 "apresentacao.tex" "apresentacao.pdf" "apresentacao" 1782869351.66365 0
+["pdflatex"] 1782910946.22741 "apresentacao.tex" "apresentacao.pdf" "apresentacao" 1782910947.97625 0
   "../resultados/comparativo_final/comparacao_ds2.png" 1782749546.27239 521741 c9753060e13ab4438b7f82f2daae8d62 ""
   "../resultados/comparativo_final/evolucao_clonalg_ds2.png" 1782749546.38539 42169 500bf23dc42ffdbfda3d8d029ed6e3be ""
-  ".latexbuild/apresentacao.aux" 1782869351.59896 2504 d3522d7019c9604fd59f7c3f39f60f97 "pdflatex"
-  ".latexbuild/apresentacao.nav" 1782869351.59996 1574 f5abf7444d939a8c2cd188b6df8c9c87 "pdflatex"
-  ".latexbuild/apresentacao.out" 1782869351.11766 0 d41d8cd98f00b204e9800998ecf8427e "pdflatex"
-  ".latexbuild/apresentacao.vrb" 1782869351.1827 1092 2b9ff8e814a74a84f673b2241b9160b2 "pdflatex"
+  ".latexbuild/apresentacao.aux" 1782910947.85114 2504 d3522d7019c9604fd59f7c3f39f60f97 "pdflatex"
+  ".latexbuild/apresentacao.nav" 1782910947.85214 1574 f5abf7444d939a8c2cd188b6df8c9c87 "pdflatex"
+  ".latexbuild/apresentacao.out" 1782910946.86513 0 d41d8cd98f00b204e9800998ecf8427e "pdflatex"
+  ".latexbuild/apresentacao.vrb" 1782910946.9881 1051 59c3297acac9b5499664859a8ae51708 "pdflatex"
   "/home/marcos/.local/texlive/2026/texmf-dist/fonts/enc/dvips/cm-super/cm-super-t1.enc" 1136849721 2971 def0b6c1f0b107b3b936def894055589 ""
   "/home/marcos/.local/texlive/2026/texmf-dist/fonts/tfm/jknappen/ec/ecsi0500.tfm" 1136768653 3584 cddc42a948742f3f690b828feeaf2449 ""
   "/home/marcos/.local/texlive/2026/texmf-dist/fonts/tfm/jknappen/ec/ecsi0600.tfm" 1136768653 3584 812f7e2de5681b983f3aeaadd29c79b6 ""
@@ -238,7 +238,7 @@
   "/home/marcos/.local/texlive/2026/texmf-var/fonts/map/pdftex/updmap/pdftex.map" 1782868227 273301 900d7bd7bc9e9e29e4f7bda6e263ae97 ""
   "/home/marcos/.local/texlive/2026/texmf-var/web2c/pdftex/pdflatex.fmt" 1782868176 2300780 f0af763738d8e4a5fe93bf0c0bba2bb6 ""
   "/home/marcos/.local/texlive/2026/texmf.cnf" 1782868164.88053 627 daca69f416c5e4fd909f91275a69890c ""
-  "apresentacao.tex" 1782869296.75285 15513 6b9820d5593acf690d05e8718e4e4c46 ""
+  "apresentacao.tex" 1782910945.48613 15218 2b8fdc1c8c5940c2db369ecabefb28cc ""
   (generated)
   ".latexbuild/apresentacao.aux"
   ".latexbuild/apresentacao.log"

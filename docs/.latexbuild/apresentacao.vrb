@@ -3,11 +3,11 @@
 \begin{semiverbatim}
 Entrada: dados X, candidatos de k, tamanho da população N,
          rho, beta, taxa de seleção, taxa de substituição,
-         métrica de afinidade, número de iterações
+         número de iterações
 
 Para cada valor inicial de k:
     Criar população inicial de anticorpos
-    Calcular afinidade inicial por Silhouette ou Davies-Bouldin
+    Calcular afinidade inicial por Silhouette
     Separar memória e repertório
     Para cada iteração:
         Calcular fator de decaimento temporal da mutação
