@@ -48,10 +48,17 @@ def default_configs():
 
 
 def load_best_configs():
-    if os.path.exists(BEST_CONFIG_PATH):
-        df = pd.read_csv(BEST_CONFIG_PATH)
-        if 'k' not in df.columns:
-            return default_configs()
+    path6 = 'resultados/resultados6_silhouette/melhores_configuracoes.csv'
+    path5 = 'resultados/resultado5_silhouette/melhores_configuracoes.csv'
+    
+    dfs = []
+    if os.path.exists(path6):
+        dfs.append(pd.read_csv(path6))
+    if os.path.exists(path5):
+        dfs.append(pd.read_csv(path5))
+        
+    if dfs:
+        df = pd.concat(dfs).drop_duplicates(subset=['DataSet'], keep='last')
         return {int(row['DataSet']): row.to_dict() for _, row in df.iterrows()}
 
     return default_configs()
@@ -92,8 +99,10 @@ def run_clonalg(data, cfg, ds_id):
 
     k = get_config_k(cfg)
     k_min, k_max = get_k_bounds(cfg)
+    n_iterations = int(cfg.get('iterations', N_ITERATIONS))
+    n_runs = int(cfg.get('runs', N_RUNS))
 
-    for run in range(N_RUNS):
+    for run in range(n_runs):
         np.random.seed(RANDOM_SEED + ds_id * 100 + run)
         sia = ClonalG(
             n_antibodies=int(cfg['n_antibodies']),
@@ -108,7 +117,7 @@ def run_clonalg(data, cfg, ds_id):
             parametric_mutation_scale=float(cfg.get('parametric_mutation_scale', 0.05)),
             diversity_weight=float(cfg.get('diversity_weight', 0.15)),
         )
-        centroids, history = sia.fit(data, n_iterations=N_ITERATIONS, verbose=False)
+        centroids, history = sia.fit(data, n_iterations=n_iterations, verbose=False)
         labels = sia.predict(data, centroids)
         score = safe_silhouette(data, labels)
         scores.append(score)

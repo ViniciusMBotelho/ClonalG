@@ -99,30 +99,12 @@
   \end{enumerate}
 \end{frame}
 
-\begin{frame}[fragile]{Pseudocódigo do ClonalG Otimizado}
-\tiny
-\begin{semiverbatim}
-Entrada: dados X, candidatos de k, tamanho da população N,
-         rho, beta, taxa de seleção, taxa de substituição,
-         número de iterações
-
-Para cada valor inicial de k:
-    Criar população inicial de anticorpos
-    Calcular afinidade inicial por Silhouette
-    Separar memória e repertório
-    Para cada iteração:
-        Calcular fator de decaimento temporal da mutação
-        Selecionar os melhores anticorpos da memória
-        Para cada anticorpo selecionado:
-            Gerar clones proporcionalmente à afinidade
-            Aplicar hipermutação estrutural e paramétrica com decaimento
-        Calcular afinidade dos clones
-        Combinar memória, repertório e clones
-        Manter os melhores na memória usando afinidade + diversidade
-        Substituir parte dos piores indivíduos por novos anticorpos
-        Guardar o melhor resultado obtido
-Comparar o melhor ClonalG com o k-Médias usando o mesmo k final.
-\end{semiverbatim}
+\begin{frame}{Comparação Visual: ClonalG Clássico vs. Otimizado}
+  \begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{resultados/comparativo_visual_antigo_novo.png}
+    \caption{Visualização do agrupamento (DataSet 2). À esquerda: Versão Clássica (Lab 2). À direita: Versão Otimizada com Busca Contínua e Seleção por Diversidade (Lab 4).}
+  \end{figure}
 \end{frame}
 
 \begin{frame}{Hipermutação Paramétrica}{Refinamento Local Fino}
@@ -169,6 +151,32 @@ Comparar o melhor ClonalG com o k-Médias usando o mesmo k final.
         \item Mantém múltiplos caminhos evolucionários (diferentes valores de $k$ e posições de cluster) ativos simultaneamente.
       \end{itemize}
   \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Pseudocódigo do ClonalG Otimizado}
+\tiny
+\begin{semiverbatim}
+Entrada: dados X, candidatos de k, tamanho da população N,
+         rho, beta, taxa de seleção, taxa de substituição,
+         número de iterações
+
+Para cada valor inicial de k:
+    Criar população inicial de anticorpos
+    Calcular afinidade inicial por Silhouette
+    Separar memória e repertório
+    Para cada iteração:
+        Calcular fator de decaimento temporal da mutação
+        Selecionar os melhores anticorpos da memória
+        Para cada anticorpo selecionado:
+            Gerar clones proporcionalmente à afinidade
+            Aplicar hipermutação estrutural e paramétrica com decaimento
+        Calcular afinidade dos clones
+        Combinar memória, repertório e clones
+        Manter os melhores na memória usando afinidade + diversidade
+        Substituir parte dos piores indivíduos por novos anticorpos
+        Guardar o melhor resultado obtido
+Comparar o melhor ClonalG com o k-Médias usando o mesmo k final.
+\end{semiverbatim}
 \end{frame}
 
 \begin{frame}{Metodologia Experimental}
@@ -261,7 +269,26 @@ Comparar o melhor ClonalG com o k-Médias usando o mesmo k final.
   \end{itemize}
 \end{frame}
 
-\begin{frame}{Resultados Visivos}{Comparação de Agrupamento no DataSet 2}
+\begin{frame}{Resultados Visíveis}{Comparação de Agrupamento --- DataSets 1 e 5}
+  \begin{columns}
+    \begin{column}{0.5\textwidth}
+      \begin{center}
+        \includegraphics[width=0.9\textwidth]{resultados/comparativo_final/comparacao_ds1.png}
+        \vskip 0.1cm
+        \scriptsize \textbf{DataSet 1 (k=3):} ClonalG e k-Means obtêm o mesmo resultado ótimo (Silhouette = 0,6480).
+      \end{center}
+    \end{column}
+    \begin{column}{0.5\textwidth}
+      \begin{center}
+        \includegraphics[width=0.9\textwidth]{resultados/comparativo_final/comparacao_ds5.png}
+        \vskip 0.1cm
+        \scriptsize \textbf{DataSet 5 (k=2):} Ambos encontram a partição ideal perfeitamente (Silhouette = 0,6644).
+      \end{center}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{Resultados Visíveis}{Comparação de Agrupamento --- DataSet 2}
   \begin{columns}
     \begin{column}{0.62\textwidth}
       \begin{center}
@@ -279,73 +306,76 @@ Comparar o melhor ClonalG com o k-Médias usando o mesmo k final.
   \end{columns}
 \end{frame}
 
-\begin{frame}{Resultados de Convergência}{Curva de Evolução no DataSet 2}
+\begin{frame}{Resultados Visíveis}{Comparação de Agrupamento --- DataSet 3}
   \begin{columns}
-    \begin{column}{0.48\textwidth}
+    \begin{column}{0.62\textwidth}
       \begin{center}
-        \includegraphics[width=0.95\textwidth]{resultados/comparativo_final/evolucao_clonalg_ds2.png}
+        \includegraphics[width=\textwidth]{resultados/comparativo_final/comparacao_ds3.png}
       \end{center}
     \end{column}
-    \begin{column}{0.52\textwidth}
-      \textbf{Comportamento da Evolução:}
+    \begin{column}{0.38\textwidth}
+      \textbf{Análise do DataSet 3:}
       \begin{itemize}
-        \item A afinidade (Índice Silhouette) cresce rapidamente nas primeiras 10 gerações.
-        \item A mutação paramétrica contínua age refinando localmente as soluções, com perturbações menores nas gerações finais.
-        \item A estabilização ocorre de maneira suave, indicando robustez e convergência estável do sistema.
+        \item \textbf{Complexidade Alta:} Grande sobreposição de classes.
+        \item \textbf{ClonalG Otimizado (Esquerda):} Encontrou clusters ligeiramente mais coerentes espacialmente.
+        \item \textbf{Métricas Equivalentes:} O ClonalG supera o k-Means levemente na média (0,2235 vs 0,2221) e melhor execução (0,2301).
       \end{itemize}
     \end{column}
   \end{columns}
 \end{frame}
 
-\begin{frame}{Discussão dos Resultados}
-  \begin{itemize}
-    \item \textbf{Superação do k-Means no DS2:}
+\begin{frame}{Resultados Visíveis}{Comparação de Agrupamento --- DataSet 4}
+  \begin{columns}
+    \begin{column}{0.62\textwidth}
+      \begin{center}
+        \includegraphics[width=\textwidth]{resultados/comparativo_final/comparacao_ds4.png}
+      \end{center}
+    \end{column}
+    \begin{column}{0.38\textwidth}
+      \textbf{Análise do DataSet 4:}
       \begin{itemize}
-        \item O k-Means ficou preso em mínimos locais devido à inicialização. O ClonalG, graças à busca estocástica global e à mutação paramétrica contínua, localizou a separação ótima estável.
+        \item \textbf{Estrutura de 4 Clusters:} ClonalG consegue posicionar os centroides com precisão fina.
+        \item \textbf{Comparativo:} Leve superioridade do ClonalG (0,5905 vs 0,5866).
+        \item A mutação paramétrica auxilia no ajuste fino do centroide central.
       \end{itemize}
-    \item \textbf{Impacto da Diversidade:}
-      \begin{itemize}
-        \item A seleção de memória guiada por diversidade manteve múltiplos candidatos ativos, permitindo encontrar o número correto de clusters mesmo sob geometrias complexas.
-      \end{itemize}
-    \item \textbf{Busca Contínua vs. Discreta:}
-      \begin{itemize}
-        \item A busca paramétrica refinou as coordenadas reais dos centroides, gerando limites de decisão mais suaves e aumentando a métrica do Silhouette.
-      \end{itemize}
-    \item \textbf{Controle Adaptativo da Busca:}
-      \begin{itemize}
-        \item O decaimento temporal reduz mutações agressivas no fim da execução, concentrando a busca em ajustes finos nos centroides mais promissores.
-      \end{itemize}
-  \end{itemize}
+    \end{column}
+  \end{columns}
 \end{frame}
 
-
 \begin{frame}{Configuração Final Executada}{Parâmetros da Execução Consolidada}
-  \begin{block}{Configuração Única --- Mesma para todos os 5 datasets}
-    \centering
-    \scriptsize
-    \begin{tabular}{ll}
-      \toprule
-      \textbf{Parâmetro} & \textbf{Valor} \\
-      \midrule
-      Afinidade interna          & Silhouette \\
-      Anticorpos ($N$)           & 80 \\
-      Clonagem ($\rho$)          & 1,2 \\
-      Beta ($\beta$)             & 25,0 \\
-      Taxa de substituição       & 0,55 \\
-      Taxa de seleção            & 0,40 \\
-      Escala de mutação param.   & 0,12 \\
-      Peso de diversidade        & 0,25 \\
-      Candidatos de $k$          & $\{2,3,4,5,6\}$ \\
-      Execuções independentes    & 3 \\
-      Iterações por execução     & 150 \\
-      \bottomrule
-    \end{tabular}
-  \end{block}
-  \vspace{0.2cm}
-  \begin{itemize}
-    \item Configuração derivada do \textbf{sweep de hiperparâmetros} (melhores valores consolidados).
-    \item Cada dataset parte de todos os $k$ candidatos e o ClonalG escolhe o melhor $k$ final via mutação estrutural.
-  \end{itemize}
+  \begin{columns}[T]
+    \begin{column}{0.5\textwidth}
+      \begin{block}{Configuração Única --- Todos os Datasets}
+        \centering
+        \scriptsize
+        \begin{tabular}{ll}
+          \toprule
+          \textbf{Parâmetro} & \textbf{Valor} \\
+          \midrule
+          Afinidade interna          & Silhouette \\
+          Anticorpos ($N$)           & 80 \\
+          Clonagem ($\rho$)          & 1,2 \\
+          Beta ($\beta$)             & 25,0 \\
+          Taxa de substituição       & 0,55 \\
+          Taxa de seleção            & 0,40 \\
+          Escala de mutação param.   & 0,12 \\
+          Peso de diversidade        & 0,25 \\
+          Candidatos de $k$          & $\{2,3,4,5,6\}$ \\
+          Execuções independentes    & 3 \\
+          Iterações por execução     & 150 \\
+          \bottomrule
+        \end{tabular}
+      \end{block}
+    \end{column}
+    
+    \begin{column}{0.48\textwidth}
+      \vspace{0.4cm}
+      \begin{itemize}
+        \item Configuração derivada do \textbf{sweep de hiperparâmetros} (melhores valores consolidados).
+        \item Cada dataset parte de todos os $k$ candidatos e o ClonalG escolhe o melhor $k$ final via mutação estrutural.
+      \end{itemize}
+    \end{column}
+  \end{columns}
 \end{frame}
 
 \begin{frame}{Resultados da Configuração Final}{ClonalG vs. k-Means nos 5 Datasets}
@@ -372,13 +402,11 @@ Comparar o melhor ClonalG com o k-Médias usando o mesmo k final.
   \end{itemize}
 \end{frame}
 
-\begin{frame}{Conclusões}
-  \begin{itemize}
-    \item O algoritmo ClonalG melhorado provou ser uma alternativa robusta e adaptativa ao clássico k-Means.
-    \item As melhorias propostas (busca local contínua via ruído gaussiano adaptativo, decaimento temporal e nichamento por diversidade) sanaram a convergência prematura típica do SIA básico.
-    \item A afinidade por Silhouette manteve o objetivo experimental consistente entre seleção, validação e comparação com o k-Means.
-    \item \textbf{Trabalhos Futuros:} Hibridizar o ClonalG com pequenos ciclos de Lloyd/k-Means para refinar centroides após a mutação.
-  \end{itemize}
+
+\begin{frame}[c]
+  \begin{center}
+    \Huge \textbf{Obrigado!}
+  \end{center}
 \end{frame}
 
 \end{document}
