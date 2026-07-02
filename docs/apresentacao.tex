@@ -318,6 +318,60 @@ Comparar o melhor ClonalG com o k-Médias usando o mesmo k final.
   \end{itemize}
 \end{frame}
 
+
+\begin{frame}{Configuração Final Executada}{Parâmetros da Execução Consolidada}
+  \begin{block}{Configuração Única --- Mesma para todos os 5 datasets}
+    \centering
+    \scriptsize
+    \begin{tabular}{ll}
+      \toprule
+      \textbf{Parâmetro} & \textbf{Valor} \\
+      \midrule
+      Afinidade interna          & Silhouette \\
+      Anticorpos ($N$)           & 80 \\
+      Clonagem ($\rho$)          & 1,2 \\
+      Beta ($\beta$)             & 25,0 \\
+      Taxa de substituição       & 0,55 \\
+      Taxa de seleção            & 0,40 \\
+      Escala de mutação param.   & 0,12 \\
+      Peso de diversidade        & 0,25 \\
+      Candidatos de $k$          & $\{2,3,4,5,6\}$ \\
+      Execuções independentes    & 3 \\
+      Iterações por execução     & 150 \\
+      \bottomrule
+    \end{tabular}
+  \end{block}
+  \vspace{0.2cm}
+  \begin{itemize}
+    \item Configuração derivada do \textbf{sweep de hiperparâmetros} (melhores valores consolidados).
+    \item Cada dataset parte de todos os $k$ candidatos e o ClonalG escolhe o melhor $k$ final via mutação estrutural.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Resultados da Configuração Final}{ClonalG vs. k-Means nos 5 Datasets}
+  \begin{table}
+    \centering
+    \scriptsize
+    \begin{tabular}{lccccc}
+      \toprule
+      Dataset & $k$ final & ClonalG (média) & ClonalG (melhor) & k-Means & $\Delta$ \\
+      \midrule
+      DS1 & 3 & 0,6480 & 0,6480 & 0,6480 & \textbf{0,0000} \\
+      DS2 & 2 & 0,6572 & \textbf{0,6637} & 0,3589 & \textbf{+0,2983} \\
+      DS3 & 6 & 0,2235 & \textbf{0,2301} & 0,2221 & \textbf{+0,0014} \\
+      DS4 & 4 & 0,5905 & \textbf{0,5905} & 0,5866 & \textbf{+0,0040} \\
+      DS5 & 2 & 0,6644 & 0,6644 & 0,6644 & \textbf{0,0000} \\
+      \bottomrule
+    \end{tabular}
+    \caption{Comparação usando o mesmo $k$ final encontrado pelo ClonalG (afinidade: Silhouette).}
+  \end{table}
+  \begin{itemize}
+    \item \textbf{DS2:} Maior destaque --- ClonalG supera k-Means em \textbf{+0,2983} de Silhouette, evitando mínimo local grave.
+    \item \textbf{DS3:} Configuração final reverteu o déficit anterior e superou levemente o k-Means (\textbf{+0,0014}).
+    \item \textbf{DS1 e DS5:} Empate estável; estrutura de clusters já é trivialmente separável.
+  \end{itemize}
+\end{frame}
+
 \begin{frame}{Conclusões}
   \begin{itemize}
     \item O algoritmo ClonalG melhorado provou ser uma alternativa robusta e adaptativa ao clássico k-Means.
